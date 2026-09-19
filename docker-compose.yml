@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://sih:sih@db:5432/sih
+      - CORS_ORIGINS=http://localhost:5173
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:80"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=sih
+      - POSTGRES_PASSWORD=sih
+      - POSTGRES_DB=sih
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

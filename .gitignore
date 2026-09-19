@@ -1,0 +1,14 @@
+﻿*.db
+*.db-wal
+*.db-shm
+*.csv
+.env
+*.env
+node_modules/
+dist/
+venv/
+__pycache__/
+*.pyc
+data/
+ml/external_data/
+data-pipeline/raw/

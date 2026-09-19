@@ -1,0 +1,26 @@
+[classifier] ACTIVE: RULE ENGINE FALLBACK — no valid trained model found (checked 0 versioned artifact(s) in /home/claude/sih1/backend/tests/../app/services/../../../ml/models and the legacy path /home/claude/sih1/backend/tests/../app/services/classifier.pkl). Run ml/train.py once enough verified real data exists.
+============================================================
+KAVACH — LIVE INFERENCE PROOF (real NASA data via sandbox test harness)
+============================================================
+Source:             nasa_firms
+Satellite:          VIIRS_Suomi_NPP  (NOTE: this sandbox's real data comes from NASA's no-key static regional feed, MODIS Terra / VIIRS Suomi-NPP — NOT the VIIRS_NOAA21_NRT/NOAA20_NRT the user's real MAP_KEY-based environment uses. Same pipeline, different real NASA source.)
+Acquisition:        2026-09-06T20:27:00
+Facility:           None matched
+Distance:           None km
+Brightness:         339.28
+Confidence:         60.0
+FRP:                9.48
+Land cover:         unknown
+Engine:             RULE ENGINE FALLBACK
+Model version:      N/A (rule engine)
+Prediction:         unknown
+Model score:        0.3
+Baseline status:    INSUFFICIENT_HISTORY
+Z-score:            0.0
+Deviation %:        0.0
+Anomaly:            no
+Evidence:           No strong supporting evidence identified.
+Reason codes:       INSUFFICIENT_HISTORY
+Risk:               WATCH (score 0.0)
+Data quality:       degraded
+============================================================

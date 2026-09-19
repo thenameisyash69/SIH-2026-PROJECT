@@ -1,0 +1,179 @@
+=== PURE LOGIC UNIT TESTS (37 tests) ===
+test_abnormal_baseline_with_supporting_evidence_escalates (tests.test_pure_logic.TestAnomalyEngine.test_abnormal_baseline_with_supporting_evidence_escalates) ... ok
+test_insufficient_history_gives_unknown (tests.test_pure_logic.TestAnomalyEngine.test_insufficient_history_gives_unknown) ... ok
+test_persistent_expected_stays_normal_even_if_hot (tests.test_pure_logic.TestAnomalyEngine.test_persistent_expected_stays_normal_even_if_hot)
+This is THE critical test: persistence must not auto-escalate. ... ok
+test_score_is_bounded_0_100_even_with_extreme_evidence_score (tests.test_pure_logic.TestAnomalyEngine.test_score_is_bounded_0_100_even_with_extreme_evidence_score) ... ok
+test_baseline_computed_at_minimum_threshold (tests.test_pure_logic.TestBaselineEngine.test_baseline_computed_at_minimum_threshold) ... ok
+test_evaluate_abnormal_reading (tests.test_pure_logic.TestBaselineEngine.test_evaluate_abnormal_reading) ... ok
+test_evaluate_insufficient_history_status (tests.test_pure_logic.TestBaselineEngine.test_evaluate_insufficient_history_status) ... ok
+test_evaluate_normal_reading (tests.test_pure_logic.TestBaselineEngine.test_evaluate_normal_reading) ... ok
+test_extreme_z_score_is_clamped_for_display_but_status_still_correct (tests.test_pure_logic.TestBaselineEngine.test_extreme_z_score_is_clamped_for_display_but_status_still_correct)
+Real finding from tests/run_pipeline_scenarios.py Scenario B: a ... ok
+test_insufficient_history_below_minimum (tests.test_pure_logic.TestBaselineEngine.test_insufficient_history_below_minimum) ... ok
+test_zero_stdev_does_not_crash (tests.test_pure_logic.TestBaselineEngine.test_zero_stdev_does_not_crash) ... ok
+test_agricultural_in_season_far_from_facility (tests.test_pure_logic.TestClassifierRuleEngine.test_agricultural_in_season_far_from_facility) ... ok
+test_forest_far_from_facility_is_wildfire (tests.test_pure_logic.TestClassifierRuleEngine.test_forest_far_from_facility_is_wildfire) ... ok
+test_low_confidence_ambiguous_case_is_unknown (tests.test_pure_logic.TestClassifierRuleEngine.test_low_confidence_ambiguous_case_is_unknown) ... ok
+test_ml_classify_returns_none_when_no_model_file_present (tests.test_pure_logic.TestClassifierRuleEngine.test_ml_classify_returns_none_when_no_model_file_present) ... [classifier] No trained model present — using rule engine only. Run ml/train.py then copy classifier.pkl here to enable ML classification.
+ok
+test_near_facility_abnormal_baseline_is_industrial_alert (tests.test_pure_logic.TestClassifierRuleEngine.test_near_facility_abnormal_baseline_is_industrial_alert) ... ok
+test_near_facility_persistent_expected_normal_baseline_is_industrial_normal (tests.test_pure_logic.TestClassifierRuleEngine.test_near_facility_persistent_expected_normal_baseline_is_industrial_normal) ... ok
+test_low_confidence_is_contradicting (tests.test_pure_logic.TestEvidenceEngine.test_low_confidence_is_contradicting) ... ok
+test_near_facility_and_abnormal_gives_supporting_evidence (tests.test_pure_logic.TestEvidenceEngine.test_near_facility_and_abnormal_gives_supporting_evidence) ... ok
+test_persistent_expected_is_contradicting_not_supporting (tests.test_pure_logic.TestEvidenceEngine.test_persistent_expected_is_contradicting_not_supporting) ... ok
+test_haversine_known_distance_roughly_correct (tests.test_pure_logic.TestFacilityMatcherMath.test_haversine_known_distance_roughly_correct) ... ok
+test_haversine_zero_distance (tests.test_pure_logic.TestFacilityMatcherMath.test_haversine_zero_distance) ... ok
+test_missing_optional_fields_handled_safely (tests.test_pure_logic.TestFeatureEngine.test_missing_optional_fields_handled_safely) ... ok
+test_ml_feature_vector_is_pure_numeric (tests.test_pure_logic.TestFeatureEngine.test_ml_feature_vector_is_pure_numeric) ... ok
+test_fetch_returns_empty_list_when_no_map_key_configured (tests.test_pure_logic.TestFirmsFetcherParsing.test_fetch_returns_empty_list_when_no_map_key_configured) ... ok
+test_map_satellite_known_codes (tests.test_pure_logic.TestFirmsFetcherParsing.test_map_satellite_known_codes) ... ok
+test_map_satellite_unknown_code_falls_back_to_sensor_name (tests.test_pure_logic.TestFirmsFetcherParsing.test_map_satellite_unknown_code_falls_back_to_sensor_name) ... ok
+test_parse_acq_datetime_combines_date_and_time (tests.test_pure_logic.TestFirmsFetcherParsing.test_parse_acq_datetime_combines_date_and_time) ... ok
+test_parse_acq_datetime_missing_date_falls_back_to_now (tests.test_pure_logic.TestFirmsFetcherParsing.test_parse_acq_datetime_missing_date_falls_back_to_now) ... /home/claude/sih1/backend/app/services/firms_fetcher.py:81: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  return datetime.utcnow()
+ok
+test_parse_acq_datetime_pads_short_time (tests.test_pure_logic.TestFirmsFetcherParsing.test_parse_acq_datetime_pads_short_time) ... ok
+test_parse_confidence_modis_number (tests.test_pure_logic.TestFirmsFetcherParsing.test_parse_confidence_modis_number) ... ok
+test_parse_confidence_viirs_words (tests.test_pure_logic.TestFirmsFetcherParsing.test_parse_confidence_viirs_words) ... ok
+test_critical_facility_with_abnormal_anomaly_can_reach_critical (tests.test_pure_logic.TestRiskEngine.test_critical_facility_with_abnormal_anomaly_can_reach_critical) ... ok
+test_low_criticality_facility_cannot_reach_critical_from_moderate_anomaly (tests.test_pure_logic.TestRiskEngine.test_low_criticality_facility_cannot_reach_critical_from_moderate_anomaly)
+A single noisy observation at a LOW-criticality facility with only ... ok
+test_missing_facility_does_not_crash (tests.test_pure_logic.TestRiskEngine.test_missing_facility_does_not_crash) ... ok
+test_risk_score_bounded_0_100 (tests.test_pure_logic.TestRiskEngine.test_risk_score_bounded_0_100) ... ok
+test_unknown_anomaly_never_maps_to_low_or_critical (tests.test_pure_logic.TestRiskEngine.test_unknown_anomaly_never_maps_to_low_or_critical) ... ok
+
+----------------------------------------------------------------------
+Ran 37 tests in 0.083s
+
+OK
+
+=== FULL PIPELINE + INGESTION SCENARIO RUN (A-I) ===
+/home/claude/sih1/backend/tests/run_pipeline_scenarios.py:55: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now = datetime.utcnow()
+[classifier] No trained model present — using rule engine only. Run ml/train.py then copy classifier.pkl here to enable ML classification.
+
+======================================================================
+SCENARIO A — Normal persistent industrial thermal source
+======================================================================
+  category:            industrial_normal
+  classification_method: rules
+  baseline_status:     NORMAL  (z=-0.06, dev%=-0.0)
+  is_anomaly:          False
+  risk_level / score:  LOW / 4.5
+  distance_to_facility_km: 0.015
+  reason:              Located 0.015 km from a known industrial facility. High-confidence source observation (82%).
+  reason_codes:        NEAR_FACILITY,HIGH_SOURCE_CONFIDENCE,INDUSTRIAL_LAND_USE,PERSISTENT_EXPECTED
+  EXPECTED:            facility matched, NOT escalated, risk LOW/WATCH, baseline NORMAL
+  RESULT: PASS
+
+======================================================================
+SCENARIO B — Abnormal industrial event (same facility, sudden spike, LATER pass)
+======================================================================
+  category:            industrial_alert
+  classification_method: rules
+  baseline_status:     ABNORMAL  (z=10.0, dev%=19.3)
+  is_anomaly:          True
+  risk_level / score:  CRITICAL / 86.5
+  distance_to_facility_km: 0.015
+  reason:              Located 0.015 km from a known industrial facility. Thermal reading deviates 19.3% from this facility's historical baseline (z=10.0).
+  reason_codes:        NEAR_FACILITY,HIGH_DEVIATION,HIGH_SOURCE_CONFIDENCE,INDUSTRIAL_LAND_USE,PERSISTENT_EXPECTED
+  EXPECTED:            facility matched, baseline ABNORMAL, risk elevated, evidence explains why
+  RESULT: PASS
+
+======================================================================
+SCENARIO C — Wildfire (forest, no nearby facility)
+======================================================================
+  category:            wildfire
+  classification_method: rules
+  baseline_status:     INSUFFICIENT_HISTORY  (z=0.0, dev%=0.0)
+  is_anomaly:          False
+  risk_level / score:  WATCH / 0.0
+  distance_to_facility_km: None
+  reason:              Location falls within forest land-cover — consistent with wildfire context.
+  reason_codes:        INSUFFICIENT_HISTORY,FOREST_LAND_COVER
+  EXPECTED:            NOT classified industrial, category=wildfire
+  RESULT: PASS
+
+======================================================================
+SCENARIO D — Agricultural burning (farmland, correct season, no facility)
+======================================================================
+  category:            agricultural_burning
+  classification_method: rules
+  baseline_status:     INSUFFICIENT_HISTORY  (z=0.0, dev%=0.0)
+  is_anomaly:          False
+  risk_level / score:  WATCH / 0.0
+  distance_to_facility_km: None
+  reason:              Location is farmland during the known stubble-burning season.
+  reason_codes:        INSUFFICIENT_HISTORY,SEASONAL_AGRI_BURN
+  EXPECTED:            category=agricultural_burning, no false industrial attribution
+  RESULT: PASS
+
+======================================================================
+SCENARIO E — Insufficient historical data (brand-new facility)
+======================================================================
+  category:            industrial_new
+  classification_method: rules
+  baseline_status:     INSUFFICIENT_HISTORY  (z=0.0, dev%=0.0)
+  is_anomaly:          False
+  risk_level / score:  WATCH / 0.0
+  distance_to_facility_km: 0.015
+  reason:              Located 0.015 km from a known industrial facility. Location falls within mapped industrial land-use context.
+  reason_codes:        NEAR_FACILITY,INSUFFICIENT_HISTORY,INDUSTRIAL_LAND_USE
+  EXPECTED:            baseline_status=INSUFFICIENT_HISTORY, system must NOT invent a baseline
+  RESULT: PASS
+
+======================================================================
+SCENARIO F — Observation near multiple facilities (nearest should win, distance stored)
+======================================================================
+  category:            industrial_new
+  classification_method: rules
+  baseline_status:     INSUFFICIENT_HISTORY  (z=0.0, dev%=0.0)
+  is_anomaly:          False
+  risk_level / score:  WATCH / 0.0
+  distance_to_facility_km: 0.151
+  reason:              Located 0.151 km from a known industrial facility. High-confidence source observation (80%).
+  reason_codes:        NEAR_FACILITY,INSUFFICIENT_HISTORY,HIGH_SOURCE_CONFIDENCE,INDUSTRIAL_LAND_USE
+  EXPECTED:            nearest facility (Close Plant) matched, distance stored and non-zero
+  Matched facility: Close Plant (correctly nearer than Farther Plant)
+  RESULT: PASS
+
+======================================================================
+SCENARIO G — Ambiguous event (far from any facility, unknown land-cover, low confidence)
+======================================================================
+  category:            unknown
+  classification_method: rules
+  baseline_status:     INSUFFICIENT_HISTORY  (z=0.0, dev%=0.0)
+  is_anomaly:          False
+  risk_level / score:  WATCH / 0.0
+  distance_to_facility_km: None
+  reason:              No strong supporting evidence identified.
+  reason_codes:        INSUFFICIENT_HISTORY,LOW_SOURCE_CONFIDENCE,POOR_DATA_QUALITY
+  EXPECTED:            category should be unknown — no forced classification
+  RESULT: PASS
+
+======================================================================
+SCENARIO H (failure mode) — Duplicate observation re-ingested
+======================================================================
+  Hotspot count before: 27, after re-ingesting identical observation: 27
+  Returned existing hotspot id: 21
+  RESULT: PASS
+
+======================================================================
+ALL 8 SCENARIOS EXECUTED AGAINST THE REAL PIPELINE — ALL ASSERTIONS PASSED
+======================================================================
+
+======================================================================
+SCENARIO I (Phase 1-4 honesty check) — firms_ingestion.sync_once() with NO map key configured
+======================================================================
+  success: False
+  error:   FIRMS_MAP_KEY is not set — cannot make a real NASA request.
+  fetched: 0, inserted: 0
+  RESULT: PASS — honest failure recorded, no data fabricated, this is the expected state in this sandbox
+
+  get_firms_status(): configured=False, last_success=None, total_real_observations=0
+  RESULT: PASS — status endpoint correctly reports OFFLINE, not LIVE
+
+======================================================================
+ALL 9 SCENARIOS COMPLETE (A-H via pipeline, I via firms_ingestion honesty check)
+======================================================================

@@ -1,0 +1,22 @@
+{
+  "generated_at": "2026-09-08T08:02:13.339407",
+  "total_observations": 79,
+  "unique_observations_after_pipeline_dedup": 79,
+  "duplicates_skipped_by_pipeline": 2,
+  "facility_associated_observations": 0,
+  "verified_labels": 0,
+  "class_distribution_verified": {},
+  "missing_feature_counts": {
+    "brightness": 0,
+    "frp": 0
+  },
+  "date_range": {
+    "earliest": "2026-09-06T02:47:00",
+    "latest": "2026-09-07T03:32:00"
+  },
+  "geographic_coverage_states_matched_to_facility": [],
+  "satellite_distribution": {
+    "MODIS_Terra": 35,
+    "VIIRS_Suomi_NPP": 44
+  }
+}

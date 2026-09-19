@@ -1,0 +1,13 @@
+{
+  "total_rows_checked": 4420214,
+  "issues": {
+    "impossible_coordinates": 0,
+    "missing_brightness": 0,
+    "invalid_timestamp": 0,
+    "invalid_frp": 0,
+    "duplicate_rows": 144,
+    "outside_configured_bbox": 1041,
+    "valid": 4419029
+  },
+  "valid_rows": 4419029
+}
