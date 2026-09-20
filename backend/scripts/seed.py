@@ -13,7 +13,8 @@ Run with:  python -m scripts.seed   (from backend/ directory)
 
 import random
 from datetime import datetime, timedelta
-import sys, os
+import sys
+import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -51,7 +52,8 @@ def run():
     db = SessionLocal()
 
     if db.query(models.Facility).count() > 0:
-        print("Database already seeded. Delete backend/sih.db to reseed from scratch.")
+        print("Database already seeded. Delete database file to reseed from scratch.")
+        db.close()
         return
 
     facilities = []
@@ -111,15 +113,30 @@ def run():
             total += 1
 
     db.commit()
+
+    # Populate Analyst Queue candidate scores and verified labels if attributes exist
+    try:
+        hotspots = db.query(models.Hotspot).all()
+        for idx, h in enumerate(hotspots):
+            if hasattr(h, 'industrial_fire_candidate_score'):
+                h.industrial_fire_candidate_score = round(random.uniform(0.65, 0.98), 2)
+            if hasattr(h, 'is_classified'):
+                h.is_classified = True
+            if idx < 10 and hasattr(h, 'verification_status'):
+                h.verification_status = "VERIFIED_INDUSTRIAL_FIRE" if idx % 2 == 0 else "VERIFIED_NORMAL_HEAT"
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"Note on candidate scoring: {e}")
+
     print(f"Seeded {len(facilities)} facilities (source=curated_demo), {total} hotspots (source=demo_synthetic).")
     print("All data ran through app.services.pipeline.process_observation — same path real FIRMS data uses.")
+    db.close()
 
 
-if __name__ == "__main__":
-    run()
 def main():
-    # Add a wrapper function so main can be imported
-    pass
+    run()
+
 
 if __name__ == "__main__":
     main()
