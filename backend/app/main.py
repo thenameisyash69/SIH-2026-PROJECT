@@ -33,31 +33,12 @@ app.include_router(ml_labeling.router)
 @app.get("/seed")
 def seed():
     try:
-        import os, sys, importlib.util
-        
-        # Locate script directory relative to main.py location
-        app_dir = os.path.dirname(os.path.abspath(__file__))
-        backend_dir = os.path.dirname(app_dir)
-        root_dir = os.path.dirname(backend_dir)
-        
-        paths_to_check = [
-            os.path.join(backend_dir, "scripts", "seed_demo.py"),
-            os.path.join(root_dir, "scripts", "seed_demo.py"),
-            os.path.join(app_dir, "scripts", "seed_demo.py"),
-        ]
-        
-        target_path = next((p for p in paths_to_check if os.path.exists(p)), None)
-        
-        if not target_path:
-            return {"status": "error", "detail": f"seed_demo.py not found at searched locations: {paths_to_check}"}
+        try:
+            from backend.scripts.seed import main as seed_main
+        except ModuleNotFoundError:
+            from scripts.seed import main as seed_main
 
-        spec = importlib.util.spec_from_file_location("seed_demo_module", target_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        
-        if hasattr(module, "main"):
-            module.main()
-            
+        seed_main()
         return {"status": "success", "message": "Database seeded successfully!"}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
