@@ -31,16 +31,34 @@ app.include_router(model_performance.router)
 app.include_router(ml_labeling.router)
 
 @app.get("/seed")
-def trigger_db_seed():
+def seed():
     try:
-        import sys, os, importlib
-        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        if backend_dir not in sys.path:
-            sys.path.insert(0, backend_dir)
+        import os, sys, importlib.util
         
-        seed_module = importlib.import_module("scripts.seed_demo")
-        seed_module.main()
-        return {"status": "success", "message": "Demo database seeded successfully!"}
+        # Locate script directory relative to main.py location
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+        backend_dir = os.path.dirname(app_dir)
+        root_dir = os.path.dirname(backend_dir)
+        
+        paths_to_check = [
+            os.path.join(backend_dir, "scripts", "seed_demo.py"),
+            os.path.join(root_dir, "scripts", "seed_demo.py"),
+            os.path.join(app_dir, "scripts", "seed_demo.py"),
+        ]
+        
+        target_path = next((p for p in paths_to_check if os.path.exists(p)), None)
+        
+        if not target_path:
+            return {"status": "error", "detail": f"seed_demo.py not found at searched locations: {paths_to_check}"}
+
+        spec = importlib.util.spec_from_file_location("seed_demo_module", target_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        
+        if hasattr(module, "main"):
+            module.main()
+            
+        return {"status": "success", "message": "Database seeded successfully!"}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
 
