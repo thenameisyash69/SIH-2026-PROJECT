@@ -470,14 +470,12 @@ class TestFirmsFetcherParsing(unittest.TestCase):
         self.assertEqual(self.mod._parse_confidence("77"), 77.0)
 
     def test_fetch_returns_empty_list_when_no_map_key_configured(self):
-        # Verifies the honest "don't fabricate data" fallback rather than
-        # raising or faking rows. The key is explicitly cleared here so the
-        # test is deterministic regardless of what .env / OS env vars are set.
         from app.config import settings
         saved_key = settings.firms_map_key
         settings.firms_map_key = ""
         try:
-            self.assertEqual(self.mod.fetch_firms_hotspots(), [])
+            result = self.mod.fetch_firms_hotspots()
+            self.assertEqual(result.get("observations", []), [])
         finally:
             settings.firms_map_key = saved_key
 

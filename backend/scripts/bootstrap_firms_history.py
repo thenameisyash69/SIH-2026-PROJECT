@@ -54,11 +54,12 @@ def run(days: int, bbox: str | None, sources: list | None):
         print(f"[bootstrap] Chunk {chunk_index}: requesting last {chunk_days} day(s) "
               f"over area {settings.firms_area} for {active_sources}...")
         try:
-            raw = fetch_firms_hotspots(day_range=chunk_days, sources=active_sources)
+            fetch_result = fetch_firms_hotspots(day_range=chunk_days, sources=active_sources)
         except Exception as e:
             print(f"[bootstrap] Chunk {chunk_index} FAILED: {e} — stopping (no partial data was faked).")
             break
 
+        raw = fetch_result.get("observations", [])
         total_fetched += len(raw)
         for obs in raw:
             land_cover = tag_land_cover(obs["lat"], obs["lon"])

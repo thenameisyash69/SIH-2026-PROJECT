@@ -63,7 +63,7 @@ def main():
 
     print("\n--- NASA FIRMS API connectivity ---")
     try:
-        observations = fetch_firms_hotspots(day_range=1)
+        fetch_result = fetch_firms_hotspots(day_range=1)
     except Exception as e:
         status_line("FIRMS API connectivity", False, str(e))
         print("\nThis means the HTTP request itself failed or NASA returned an error. Common causes:")
@@ -72,13 +72,32 @@ def main():
         print("  - NASA FIRMS service temporarily down")
         return
 
+    observations = fetch_result.get("observations", [])
+    source_results = fetch_result.get("sources", {})
+    errors = fetch_result.get("errors", {})
+
     status_line("HTTP response", True)
     status_line("Records received", True, f"N={len(observations)}")
 
+    if source_results:
+        print("\nPer-source breakdown:")
+        for sensor, details in source_results.items():
+            status_line(f"  {sensor}", details["rows"] > 0,
+                         f"{details['rows']} rows, HTTP {details['http_status']}, {details['byte_count']} bytes")
+
+    if errors:
+        print("\nPer-source errors:")
+        for sensor, msg in errors.items():
+            status_line(f"  {sensor}", False, msg[:200])
+
     if len(observations) == 0:
-        print("\nNASA FIRMS returned 0 observations for this query. This is a VALID, non-error "
-              "result — it means no thermal detections were reported in the configured area/time "
-              "window during the last day, not that configuration is broken.")
+        if errors:
+            print("\nNASA FIRMS returned 0 observations AND had source errors. "
+                  "This is likely a request error, not a valid empty result.")
+        else:
+            print("\nNASA FIRMS returned 0 observations for this query. This is a VALID, non-error "
+                  "result — it means no thermal detections were reported in the configured area/time "
+                  "window during the last day, not that configuration is broken.")
         return
 
     latest = max(observations, key=lambda o: o["acq_date"])

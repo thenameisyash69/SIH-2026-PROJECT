@@ -8,15 +8,16 @@ Deliberately does NOT duplicate any classification/anomaly/risk logic —
 every fetched observation is normalized here and then handed to
 app.services.pipeline.process_observation(), the same single orchestrator
 seed.py uses. This module's only responsibilities are: fetch, normalize,
-enforce India scope, record the attempt (success or failure) in IngestionRun, 
+enforce India scope, record the attempt (success or failure) in IngestionRun,
 and count inserted vs. duplicate.
 
 CRITICAL HONESTY RULE (spec's own Final Rule): a sync is only ever marked
-`success=True` if a real NASA HTTP request actually returned and parsed
+`success=True` if a real NASA HTTP request actually returned 200 and parsed
 without error. If FIRMS_MAP_KEY is missing, or the request fails, this
 records success=False with a real error_message — it never fabricates a
 successful sync, and it never deletes previously stored observations.
 """
+import logging
 from datetime import datetime
 from sqlalchemy.orm import Session
 from app import models
@@ -26,7 +27,9 @@ from app.services.landcover_fetcher import tag_land_cover
 from app.services.pipeline import process_observation
 from app.services.india_scope import is_in_india
 
-STALE_AFTER_MINUTES_DEFAULT = 60   # if last SUCCESSFUL sync is older than this, status = STALE
+logger = logging.getLogger(__name__)
+
+STALE_AFTER_MINUTES_DEFAULT = 60
 
 
 def sync_once(db: Session) -> dict:
@@ -41,17 +44,21 @@ def sync_once(db: Session) -> dict:
 
     if not settings.firms_enabled:
         return _finish_run(db, run, started_at, success=False,
-                            error="FIRMS_ENABLED is false in configuration.")
+                           error="FIRMS_ENABLED is false in configuration.")
 
     if not settings.firms_configured:
         return _finish_run(db, run, started_at, success=False,
-                            error="FIRMS_MAP_KEY is not set — cannot make a real NASA request.")
+                           error="FIRMS_MAP_KEY is not set — cannot make a real NASA request.")
 
     try:
-        raw_observations = fetch_firms_hotspots()
+        fetch_result = fetch_firms_hotspots()
     except Exception as e:
-        # A real, failed attempt — recorded honestly, not silently swallowed.
+        logger.error("[firms_ingestion] Sync failed — exception: %s", str(e)[:200])
         return _finish_run(db, run, started_at, success=False, error=str(e))
+
+    raw_observations = fetch_result.get("observations", [])
+    source_results = fetch_result.get("sources", {})
+    errors = fetch_result.get("errors", {})
 
     fetched_count = len(raw_observations)
     inserted_count = 0
@@ -59,7 +66,6 @@ def sync_once(db: Session) -> dict:
     skipped_outside_india = 0
 
     for raw in raw_observations:
-        # Strict India boundary check — skip if point falls outside India
         if not is_in_india(raw["lat"], raw["lon"]):
             skipped_outside_india += 1
             continue
@@ -78,6 +84,12 @@ def sync_once(db: Session) -> dict:
 
     db.commit()
 
+    error_messages = []
+    if errors:
+        for sensor, msg in errors.items():
+            error_messages.append(f"{sensor}: {msg}")
+        run.error_message = "; ".join(error_messages)
+
     run.fetched_count = fetched_count
     run.inserted_count = inserted_count
     run.duplicate_count = duplicate_count
@@ -86,7 +98,11 @@ def sync_once(db: Session) -> dict:
     db.commit()
     db.refresh(run)
 
-    return {
+    logger.info("[firms_ingestion] Sync complete — fetched=%d, inserted=%d, duplicates=%d, outside_india=%d, errors=%s",
+                fetched_count, inserted_count, duplicate_count, skipped_outside_india,
+                error_messages if error_messages else "none")
+
+    sync_result = {
         "success": True,
         "fetched": fetched_count,
         "inserted": inserted_count,
@@ -96,7 +112,12 @@ def sync_once(db: Session) -> dict:
         "sources": settings.firms_sources,
         "duration_seconds": (run.finished_at - started_at).total_seconds(),
         "error": None,
+        "source_details": source_results,
     }
+    if error_messages:
+        sync_result["errors"] = errors
+
+    return sync_result
 
 
 def _finish_run(db: Session, run: models.IngestionRun, started_at: datetime, success: bool, error: str) -> dict:
@@ -105,6 +126,7 @@ def _finish_run(db: Session, run: models.IngestionRun, started_at: datetime, suc
     run.finished_at = datetime.utcnow()
     db.commit()
     db.refresh(run)
+    logger.warning("[firms_ingestion] Sync FAILED — %s", error)
     return {
         "success": success,
         "fetched": 0,
@@ -114,6 +136,7 @@ def _finish_run(db: Session, run: models.IngestionRun, started_at: datetime, suc
         "sources": settings.firms_sources,
         "duration_seconds": (run.finished_at - started_at).total_seconds(),
         "error": error,
+        "source_details": {},
     }
 
 

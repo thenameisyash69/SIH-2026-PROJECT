@@ -19,10 +19,13 @@ bounding box — never one request per point.
 """
 import csv
 import io
+import logging
 import os
 from datetime import datetime, timedelta
 import requests
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 FIRMS_BASE_URL = "https://firms.modaps.eosdis.nasa.gov/api/area/csv"
 FIRMS_STATIC_BASE = "https://firms.modaps.eosdis.nasa.gov/data/active_fire"
@@ -116,47 +119,70 @@ def fetch_firms_static_csv(date, sensor: str = "VIIRS_NOAA21_NRT") -> list[dict]
     return results
 
 
-def fetch_firms_hotspots(day_range: int = 1, sources: list | None = None) -> list[dict]:
-    """
-    Returns a list of dicts across ALL configured sources:
-    lat, lon, brightness, confidence, frp, satellite, acq_date, source_sensor.
-
-    acq_date is the REAL satellite acquisition timestamp (date + time,
-    parsed from FIRMS' acq_date + acq_time columns) — never replaced with
-    "now". This matters for two reasons: (1) raw source data must be
-    preserved, not replaced with ingestion-time metadata; (2) duplicate
-    detection in pipeline.py keys on this exact timestamp.
-    """
+def fetch_firms_hotspots(day_range: int = 1, sources: list | None = None) -> dict:
     if not settings.firms_map_key:
-        return []
+        return {
+            "observations": [],
+            "sources": {},
+            "errors": {},
+        }
 
     sensors = sources or settings.firms_sources
     all_results = []
+    source_results = {}
+    errors = {}
+
     for sensor in sensors:
-        all_results.extend(_fetch_one_sensor(sensor, day_range))
-    return all_results
+        try:
+            result = _fetch_one_sensor(sensor, day_range)
+            rows = result["rows"]
+            all_results.extend(rows)
+            source_results[sensor] = {
+                "rows": len(rows),
+                "http_status": result["http_status"],
+                "byte_count": result["byte_count"],
+                "parse_errors": result["parse_errors"],
+            }
+            logger.info("[firms_fetcher] Source %s: %d rows, HTTP %s",
+                        sensor, len(rows), result["http_status"])
+        except Exception as e:
+            error_msg = str(e)[:200]
+            errors[sensor] = error_msg
+            logger.warning("[firms_fetcher] Source %s FAILED: %s", sensor, error_msg)
+
+    return {
+        "observations": all_results,
+        "sources": source_results,
+        "errors": errors,
+    }
 
 
-def _fetch_one_sensor(sensor: str, day_range: int) -> list[dict]:
+def _fetch_one_sensor(sensor: str, day_range: int) -> dict:
     url = f"{FIRMS_BASE_URL}/{settings.firms_map_key}/{sensor}/{settings.firms_area}/{day_range}"
 
     try:
         resp = requests.get(url, timeout=60)
         resp.raise_for_status()
     except requests.Timeout as e:
-        print(f"[firms_fetcher] Request timed out for {sensor}: {e}")
+        logger.warning("[firms_fetcher] Request timed out for %s: %s", sensor, e)
         raise TimeoutError(f"FIRMS request for {sensor} timed out after 60s") from e
     except requests.RequestException as e:
-        print(f"[firms_fetcher] Request failed for {sensor}: {e}")
-        raise   # let the caller (firms_ingestion.py) record this as a real failed attempt
+        logger.warning("[firms_fetcher] Request failed for %s: HTTP %s — %s",
+                         sensor, getattr(e.response, 'status_code', 'N/A'), str(e)[:200])
+        raise
 
-    # NASA returns a one-line CSV error message (not real data) for bad keys/params
     text = resp.text
+    byte_count = len(text.encode('utf-8')) if text else 0
+    status_code = resp.status_code
+
     if text.strip().lower().startswith(("invalid", "error")):
+        logger.error("[firms_fetcher] API error for %s — HTTP %s, %d bytes, response: %s",
+                      sensor, status_code, byte_count, text[:200])
         raise ValueError(f"FIRMS API returned an error for {sensor}: {text[:200]}")
 
     reader = csv.DictReader(io.StringIO(text))
     results = []
+    parse_errors = 0
     for row in reader:
         try:
             results.append({
@@ -170,8 +196,19 @@ def _fetch_one_sensor(sensor: str, day_range: int) -> list[dict]:
                 "source_sensor": sensor,
             })
         except (KeyError, ValueError):
+            parse_errors += 1
             continue
-    return results
+
+    logger.info("[firms_fetcher] %s — HTTP %s, %d bytes, %d rows parsed, %d parse errors",
+                sensor, status_code, byte_count, len(results), parse_errors)
+
+    return {
+        "sensor": sensor,
+        "rows": results,
+        "http_status": status_code,
+        "byte_count": byte_count,
+        "parse_errors": parse_errors,
+    }
 
 
 def _parse_acq_datetime(acq_date_str, acq_time_str):

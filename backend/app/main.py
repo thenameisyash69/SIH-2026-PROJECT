@@ -91,7 +91,17 @@ async def _firms_sync_loop():
         try:
             result = firms_ingestion.sync_once(db)
             if result.get("success"):
-                print(f"[firms_sync_loop] OK — fetched {result.get('fetched')}, inserted {result.get('inserted')}")
+                logger_msg = (f"[firms_sync_loop] OK — fetched {result.get('fetched')}, "
+                              f"inserted {result.get('inserted')}, "
+                              f"duplicates {result.get('duplicates_skipped')}, "
+                              f"outside_india {result.get('skipped_outside_india')}, "
+                              f"duration {result.get('duration_seconds'):.1f}s")
+                src_details = result.get("source_details", {})
+                if src_details:
+                    logger_msg += f", sources: {src_details}"
+                if result.get("errors"):
+                    logger_msg += f", errors: {result['errors']}"
+                print(logger_msg)
             else:
                 print(f"[firms_sync_loop] FAILED — {result.get('error')}")
         except Exception as e:
