@@ -20,9 +20,6 @@ from app.routers import (
     admin,
 )
 from app.services import firms_ingestion
-from app.routers import admin
-app = FastAPI(title="KAVACH API")
-app.include_router(admin.router)
 
 app = FastAPI(
     title="Industrial Fire & Thermal Anomaly Detection API",
@@ -31,14 +28,15 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# Enable CORS for all frontend origins (including dynamic Vercel deployments)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app = FastAPI(title="KAVACH API")
+
 # Route registration
 app.include_router(hotspots.router)
 app.include_router(alerts.router)
