@@ -17,8 +17,12 @@ from app.routers import (
     data_sources,
     model_performance,
     ml_labeling,
+    admin,
 )
 from app.services import firms_ingestion
+from app.routers import admin
+app = FastAPI(title="KAVACH API")
+app.include_router(admin.router)
 
 app = FastAPI(
     title="Industrial Fire & Thermal Anomaly Detection API",
@@ -34,7 +38,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+app = FastAPI(title="KAVACH API")
 # Route registration
 app.include_router(hotspots.router)
 app.include_router(alerts.router)
@@ -44,6 +48,7 @@ app.include_router(facilities.router)
 app.include_router(data_sources.router)
 app.include_router(model_performance.router)
 app.include_router(ml_labeling.router)
+app.include_router(admin.router)
 
 
 @app.on_event("startup")
