@@ -10,6 +10,7 @@ with real data (spec §28).
 
 Run with:  python -m scripts.seed   (from backend/ directory)
 """
+
 import random
 from datetime import datetime, timedelta
 import sys, os
@@ -116,3 +117,9 @@ def run():
 
 if __name__ == "__main__":
     run()
+def main():
+    # Add a wrapper function so main can be imported
+    pass
+
+if __name__ == "__main__":
+    main()
