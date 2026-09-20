@@ -135,3 +135,52 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "healthy"}
+import os, sys, runpy
+
+@app.get("/seed")
+def trigger_db_seed():
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        backend_dir = os.path.dirname(current_dir)
+        root_dir = os.path.dirname(backend_dir)
+        
+        candidates = [
+            os.path.join(backend_dir, "scripts", "seed_demo.py"),
+            os.path.join(root_dir, "backend", "scripts", "seed_demo.py"),
+            os.path.join(os.getcwd(), "scripts", "seed_demo.py"),
+            os.path.join(os.getcwd(), "backend", "scripts", "seed_demo.py"),
+        ]
+        
+        for script_path in candidates:
+            if os.path.exists(script_path):
+                if backend_dir not in sys.path:
+                    sys.path.insert(0, backend_dir)
+                runpy.run_path(script_path, run_name="__main__")
+                return {"status": "success", "message": "Database seeded successfully!"}
+                
+        return {"status": "error", "detail": f"seed_demo.py not found at searched paths"}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+@app.get("/sync-now")
+def trigger_firms_sync_get():
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        backend_dir = os.path.dirname(current_dir)
+        
+        candidates = [
+            os.path.join(backend_dir, "scripts", "test_firms.py"),
+            os.path.join(os.getcwd(), "scripts", "test_firms.py"),
+            os.path.join(os.getcwd(), "backend", "scripts", "test_firms.py"),
+        ]
+        
+        for script_path in candidates:
+            if os.path.exists(script_path):
+                if backend_dir not in sys.path:
+                    sys.path.insert(0, backend_dir)
+                runpy.run_path(script_path, run_name="__main__")
+                return {"status": "success", "message": "Live FIRMS sync completed!"}
+                
+        return {"status": "error", "detail": "test_firms.py script not found"}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
