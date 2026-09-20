@@ -30,15 +30,23 @@ app.include_router(data_sources.router)
 app.include_router(model_performance.router)
 app.include_router(ml_labeling.router)
 
+import os
+import runpy
+
 @app.get("/seed")
 def seed():
     try:
-        try:
-            from backend.scripts.seed import main as seed_main
-        except ModuleNotFoundError:
-            from scripts.seed import main as seed_main
+        # Locate backend/scripts/seed.py relative to main.py
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+        backend_dir = os.path.dirname(app_dir)
+        script_path = os.path.join(backend_dir, "scripts", "seed.py")
+        
+        if not os.path.exists(script_path):
+            # Fallback path if working directory differs
+            script_path = os.path.join(os.getcwd(), "backend", "scripts", "seed.py")
 
-        seed_main()
+        # Executes seed.py directly regardless of function names inside
+        runpy.run_path(script_path, run_name="__main__")
         return {"status": "success", "message": "Database seeded successfully!"}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
