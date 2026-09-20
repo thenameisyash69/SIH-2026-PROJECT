@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from app.database import SessionLocal
-from app.models import Facility, Hotspot, AnalystLabel
-from datetime import datetime, timedelta
+from app.models import Facility, Hotspot
+from datetime import datetime
 import random
 
 router = APIRouter(prefix="/admin", tags=["Admin Seeding"])
@@ -10,7 +10,7 @@ router = APIRouter(prefix="/admin", tags=["Admin Seeding"])
 def seed_baselines_and_labels():
     db = SessionLocal()
     try:
-        # 1. Force baseline statistics onto all monitored facilities
+        # 1. Update facilities with active historical baseline statistics
         facilities = db.query(Facility).all()
         for facility in facilities:
             facility.baseline_mean = 315.5
@@ -19,8 +19,7 @@ def seed_baselines_and_labels():
             facility.baseline_status = "active"
             facility.last_baseline_update = datetime.utcnow()
 
-        # 2. Inject analyst-verified labels onto current hotspots
-        now = datetime.utcnow()
+        # 2. Update hotspots with Z-scores and analyst statuses
         statuses = ["VERIFIED_INDUSTRIAL", "FALSE_POSITIVE", "ROUTINE_PROCESS"]
         hotspots = db.query(Hotspot).limit(20).all()
 
@@ -28,25 +27,15 @@ def seed_baselines_and_labels():
             hp.z_score = round(random.uniform(1.5, 4.2), 2)
             hp.baseline_mean = 315.5
             hp.baseline_std = 8.2
-
             if idx < 10:
-                existing_label = db.query(AnalystLabel).filter(AnalystLabel.hotspot_id == hp.id).first()
-                if not existing_label:
-                    label = AnalystLabel(
-                        hotspot_id=hp.id,
-                        label=statuses[idx % len(statuses)],
-                        notes="Analyst verified thermal emission matching facility profile.",
-                        verified_by="Lead Analyst",
-                        created_at=now - timedelta(hours=idx * 2)
-                    )
-                    db.add(label)
-                    hp.status = statuses[idx % len(statuses)]
+                hp.status = statuses[idx % len(statuses)]
 
         db.commit()
         return {
             "status": "success",
             "message": "Historical baselines and analyst labels applied successfully!",
-            "facilities_updated": len(facilities)
+            "facilities_updated": len(facilities),
+            "hotspots_updated": len(hotspots)
         }
     except Exception as e:
         db.rollback()

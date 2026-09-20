@@ -3,6 +3,7 @@ from pathlib import Path
 
 # Add backend directory to path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
+from app.models import Facility, Hotspot
 
 from app.database import SessionLocal
 from app.models import Facility, Hotspot, AnalystLabel, IngestionRun
