@@ -140,6 +140,10 @@ export default function DetailPanel({ hotspot, hotspots = [], deep = false, comp
   const zDisplay = (insufficient || hotspot.z_score == null) ? '—' : hotspot.z_score
   const devDisplay = (insufficient || hotspot.deviation_percentage == null) ? '—' : hotspot.deviation_percentage
 
+  const baselineLevel = thermalHistory?.baseline_status || 'INSUFFICIENT_HISTORY'
+  const isInsufficientHistory = baselineLevel === 'INSUFFICIENT_HISTORY'
+  const isProvisional = baselineLevel === 'PROVISIONAL'
+
   // 5. LIKELY CAUSE — evidence-based interpretation, NOT confirmed ground truth.
   const likelyCauseLabel = {
     industrial_normal: 'Normal industrial heat',
@@ -308,14 +312,15 @@ export default function DetailPanel({ hotspot, hotspots = [], deep = false, comp
         <div className="why-row"><span>Baseline status</span><strong>{hotspot.baseline_status.replace(/_/g, ' ')}</strong></div>
         <div className="why-row"><span>Observation / history sufficiency</span><strong>
           {loadingHistory ? 'Loading…'
-            : thermalHistory ? (thermalHistory.insufficient_history ? 'INSUFFICIENT HISTORY' : 'Sufficient')
-            : '—'}
+            : isInsufficientHistory ? 'INSUFFICIENT HISTORY'
+            : isProvisional ? 'PROVISIONAL — limited history'
+            : 'Sufficient'}
         </strong></div>
         <div className="why-row"><span>Baseline median</span><strong>
-          {thermalHistory && !insufficient && thermalHistory.median != null ? thermalHistory.median.toFixed(1) + ' K' : '—'}
+          {thermalHistory && !isInsufficientHistory && thermalHistory.median != null ? thermalHistory.median.toFixed(1) + ' K' : '—'}
         </strong></div>
         <div className="why-row"><span>Baseline P95</span><strong>
-          {thermalHistory && !insufficient && thermalHistory.p95 != null ? thermalHistory.p95.toFixed(1) + ' K' : '—'}
+          {thermalHistory && !isInsufficientHistory && thermalHistory.p95 != null ? thermalHistory.p95.toFixed(1) + ' K' : '—'}
         </strong></div>
         <div className="why-row"><span>Z-score</span><strong>{zDisplay}</strong></div>
         <div className="why-row"><span>Deviation %</span><strong>{devDisplay}{devDisplay !== '—' ? '%' : ''}</strong></div>
@@ -331,6 +336,12 @@ export default function DetailPanel({ hotspot, hotspots = [], deep = false, comp
           There are not enough historical observations to reliably calculate
           baseline deviation or recurrence. The current brightness/FRP are
           real stored values; z-score and deviation are shown as unavailable.
+        </p>
+      )}
+
+      {isProvisional && thermalHistory && (
+        <p className="why-insufficient">
+          <strong>Provisional baseline — limited history.</strong> {thermalHistory.confidence}
         </p>
       )}
 
@@ -385,7 +396,7 @@ export default function DetailPanel({ hotspot, hotspots = [], deep = false, comp
           z-score/deviation are deliberately shown as unavailable because the
           backend never calculated them; the raw thermal readings below are
           the actual stored observations, never fabricated. */}
-      {insufficient && (
+      {isInsufficientHistory && (
         <div className="baseline-insufficient">
           <span className="baseline-insufficient__eyebrow">
             No baseline available — recurrence and deviation cannot be computed.
@@ -407,25 +418,51 @@ export default function DetailPanel({ hotspot, hotspots = [], deep = false, comp
         </div>
       )}
 
+      {isProvisional && thermalHistory && (
+        <div className="baseline-provisional">
+          <span className="baseline-provisional__eyebrow">
+            Provisional baseline — {thermalHistory.observation_count} observation(s), {thermalHistory.unique_active_days} unique active day(s)
+          </span>
+          <span className="baseline-provisional__stat">
+            Baseline mean {thermalHistory.mean != null ? thermalHistory.mean.toFixed(1) + ' K' : '—'}
+          </span>
+          <span className="baseline-provisional__stat">
+            Baseline P95 {thermalHistory.p95 != null ? thermalHistory.p95.toFixed(1) + ' K' : '—'}
+          </span>
+        </div>
+      )}
+
       {/* THERMAL HISTORY / BAR CHART — real NASA FIRMS rows only.
           Shown BEFORE the baseline block so the chart drives the baseline. */}
       {hotspot.source === 'nasa_firms' && hotspot.facility && (
         thermalHistory ? (
-          thermalHistory.insufficient_history ? (
+          isInsufficientHistory ? (
             <p className="empty">
               Insufficient NASA FIRMS history for this facility — only{' '}
               {thermalHistory.observation_count} observation(s) in the 90-day window.
               Baseline statistics are not shown to avoid misleading conclusions.
             </p>
           ) : (
-            <ThermalHistoryChart
-              observations={thermalHistory.observations || []}
-              baseline={{
-                mean: thermalHistory.mean,
-                p95: thermalHistory.p95,
-              }}
-              selectedHotspotId={hotspot.id}
-            />
+            <>
+              {isProvisional && (
+                <div className="thermal-chart__provisional-banner--compact">
+                  <span className="thermal-chart__provisional-flag">PROVISIONAL — limited history</span>
+                  <span className="thermal-chart__provisional-note">
+                    {thermalHistory.observation_count} observation(s) / {thermalHistory.unique_active_days} unique day(s)
+                    in the 90-day window — minimum 8 required for a stable baseline.
+                  </span>
+                </div>
+              )}
+              <ThermalHistoryChart
+                observations={thermalHistory.observations || []}
+                baseline={{
+                  mean: thermalHistory.mean,
+                  p95: thermalHistory.p95,
+                }}
+                baselineStatus={thermalHistory.baseline_status}
+                selectedHotspotId={hotspot.id}
+              />
+            </>
           )
         ) : loadingHistory ? (
           <p className="empty">Loading NASA FIRMS thermal history…</p>
@@ -437,7 +474,7 @@ export default function DetailPanel({ hotspot, hotspots = [], deep = false, comp
       {/* 90-DAY NASA FIRMS THERMAL BASELINE + HISTOGRAM
           Shown ONLY for real NASA FIRMS observations that are facility-associated
           and have sufficient history. Never fabricated. */}
-      {hotspot.source === 'nasa_firms' && hotspot.facility && (
+          {hotspot.source === 'nasa_firms' && hotspot.facility && (
         <div className="thermal-baseline-block">
           <div className="thermal-baseline-block__head">
             <span className="thermal-baseline-block__eyebrow">90-DAY NASA FIRMS THERMAL BASELINE</span>
@@ -447,7 +484,7 @@ export default function DetailPanel({ hotspot, hotspots = [], deep = false, comp
           {loadingHistory ? (
             <p className="thermal-baseline-block__note">Loading 90-day NASA thermal history…</p>
           ) : thermalHistory ? (
-            thermalHistory.insufficient_history ? (
+            isInsufficientHistory ? (
               <p className="thermal-baseline-block__note">
                 Insufficient NASA history for 90-day baseline —
                 only {thermalHistory.observation_count} NASA observation(s) in window
@@ -455,6 +492,13 @@ export default function DetailPanel({ hotspot, hotspots = [], deep = false, comp
               </p>
             ) : (
               <>
+                {isProvisional && (
+                  <p className="thermal-baseline-block__note thermal-baseline-block__note--provisional">
+                    Provisional baseline — {thermalHistory.observation_count} observation(s),{' '}
+                    {thermalHistory.unique_active_days} unique active day(s) in 90-day window
+                    (minimum 8 required for stability).
+                  </p>
+                )}
                 <div className="thermal-baseline-stats">
                   <div className="thermal-baseline-stat">
                     <span className="thermal-baseline-stat__label">Observations</span>

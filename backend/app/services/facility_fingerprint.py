@@ -6,7 +6,11 @@ profile from its observation history, and distinguishes:
                                flare that's ALWAYS been this bright)
   PERSISTENT + UNEXPECTED  -> potential industrial anomaly (persistent
                                but behavior has recently shifted)
+  PROVISIONAL              -> some history exists but fewer than 8 obs
+                               across 8 unique days — stats shown but
+                               not yet stable
   INSUFFICIENT_HISTORY     -> honest "we don't know yet" state
+  IRREGULAR                -> sparse / intermittent history
 
 This is deliberately NOT "persistent = safe" or "persistent = alert" —
 both of those are the naive mistake the spec calls out.
@@ -14,7 +18,11 @@ both of those are the naive mistake the spec calls out.
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from app import models
-from app.services.baseline_engine import compute_baseline, evaluate_against_baseline, MIN_OBSERVATIONS_FOR_BASELINE
+from app.services.baseline_engine import (
+    compute_baseline, evaluate_against_baseline,
+    MIN_OBSERVATIONS_FOR_BASELINE,
+    INSUFFICIENT_HISTORY, PROVISIONAL, ESTABLISHED,
+)
 
 
 def _recent_count(hotspots: list, days: int, now: datetime) -> int:
@@ -75,10 +83,10 @@ def build_fingerprint(db: Session, facility: models.Facility, source: str | None
 
     historical_anomaly_count = sum(1 for h in hotspots if h.is_anomaly)
 
-    if (baseline.observation_count < MIN_OBSERVATIONS_FOR_BASELINE
-            or (baseline.unique_days is not None
-                and baseline.unique_days < MIN_OBSERVATIONS_FOR_BASELINE)):
+    if baseline.status == INSUFFICIENT_HISTORY:
         behavior_label = "INSUFFICIENT_HISTORY"
+    elif baseline.status == PROVISIONAL:
+        behavior_label = "PROVISIONAL"
     elif persistence_score >= 0.6 and historical_anomaly_count / max(1, len(hotspots)) < 0.15:
         behavior_label = "PERSISTENT_EXPECTED"
     elif persistence_score >= 0.6:
@@ -90,6 +98,7 @@ def build_fingerprint(db: Session, facility: models.Facility, source: str | None
         "facility_id": facility.id,
         "facility_name": facility.name,
         "observation_count": baseline.observation_count,
+        "baseline_status": baseline.status,
         "baseline_mean": round(baseline.mean, 2) if baseline.mean is not None else None,
         "baseline_median": round(baseline.median, 2) if baseline.median is not None else None,
         "baseline_std": round(baseline.std, 2) if baseline.std is not None else None,

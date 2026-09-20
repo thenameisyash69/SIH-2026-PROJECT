@@ -119,7 +119,7 @@ def rule_based_classify(features: dict) -> dict:
     if near_facility and baseline_status == "ABNORMAL":
         return {"category": "industrial_alert", "confidence": 0.75}
 
-    if near_facility and behavior == "INSUFFICIENT_HISTORY":
+    if near_facility and behavior in ("INSUFFICIENT_HISTORY", "PROVISIONAL"):
         return {"category": "industrial_new", "confidence": 0.5}
 
     if land_cover == "forest" and not near_facility:

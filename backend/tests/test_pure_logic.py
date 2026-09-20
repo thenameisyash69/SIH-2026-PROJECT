@@ -29,10 +29,19 @@ def _hs(acq_dates):
 
 
 class TestBaselineEngine(unittest.TestCase):
-    def test_insufficient_history_below_minimum(self):
-        b = baseline_engine.compute_baseline([300, 302, 305])
-        self.assertEqual(b.observation_count, 3)
+    def test_insufficient_history_zero_observations(self):
+        b = baseline_engine.compute_baseline([])
+        self.assertEqual(b.observation_count, 0)
         self.assertIsNone(b.mean)
+        self.assertEqual(b.status, baseline_engine.INSUFFICIENT_HISTORY)
+
+    def test_provisional_few_observations_computes_stats(self):
+        """3 obs is below the 8/8 threshold -> PROVISIONAL, but stats
+        ARE still computed (unlike the old behaviour that discarded them)."""
+        b = baseline_engine.compute_baseline([300, 302, 305], unique_days=3)
+        self.assertEqual(b.observation_count, 3)
+        self.assertIsNotNone(b.mean)
+        self.assertEqual(b.status, baseline_engine.PROVISIONAL)
 
     def test_baseline_computed_at_minimum_threshold(self):
         history = [300 + i for i in range(baseline_engine.MIN_OBSERVATIONS_FOR_BASELINE)]
@@ -121,6 +130,31 @@ class TestBaselineEngine(unittest.TestCase):
         self.assertLess(result["z_score"], 0)  # negative z preserved for display
 
 
+class TestBaselineStatusPropagation(unittest.TestCase):
+    """Verify the three-state baseline status flows correctly through
+    compute_baseline, baseline_confidence, and evaluate_against_baseline."""
+
+    def test_provisional_baseline_yields_insufficient_reading_status(self):
+        """A PROVISIONAL baseline (stats computed but not yet stable) must
+        NOT produce a reading-level z-score classification. The reading-level
+        baseline_status must be INSUFFICIENT_HISTORY to avoid false ELEVATED/
+        ABNORMAL from a small sample."""
+        history = [300, 305, 298, 301, 303, 299, 302]  # 7 obs -> PROVISIONAL
+        b = baseline_engine.compute_baseline(history, unique_days=7)
+        self.assertEqual(b.status, baseline_engine.PROVISIONAL)
+        result = baseline_engine.evaluate_against_baseline(360, b)
+        self.assertEqual(result["baseline_status"], "INSUFFICIENT_HISTORY")
+        self.assertEqual(result["z_score"], 0.0)
+
+    def test_established_baseline_allows_real_z_score(self):
+        """An ESTABLISHED baseline must produce a real z-score evaluation."""
+        history = [300 + i for i in range(8)]
+        b = baseline_engine.compute_baseline(history, unique_days=8)
+        self.assertEqual(b.status, baseline_engine.ESTABLISHED)
+        result = baseline_engine.evaluate_against_baseline(360, b)
+        self.assertNotEqual(result["baseline_status"], "INSUFFICIENT_HISTORY")
+
+
 class TestBaselineUniqueDays(unittest.TestCase):
     """Baseline sufficiency requires BOTH observation count >= 8 AND
     unique active calendar days >= 8. Raw observation count alone is not
@@ -145,12 +179,18 @@ class TestBaselineUniqueDays(unittest.TestCase):
         self.assertEqual(result["z_score"], 0.0)
         self.assertEqual(result["deviation_percentage"], 0.0)
 
-    def test_7_obs_10_unique_days_insufficient(self):
+    def test_7_obs_10_unique_days_provisional(self):
+        """7 obs with 10 unique days: below observation-count threshold
+        but stats are still computed since n > 0. Baseline-level status
+        is PROVISIONAL, so reading-level status is INSUFFICIENT_HISTORY."""
         history = [300 + i for i in range(7)]
         b = baseline_engine.compute_baseline(history, unique_days=10)
-        self.assertIsNone(b.mean)  # below observation count threshold
+        self.assertIsNotNone(b.mean)  # stats computed for n > 0
+        self.assertEqual(b.status, baseline_engine.PROVISIONAL)
         result = baseline_engine.evaluate_against_baseline(360, b)
         self.assertEqual(result["baseline_status"], "INSUFFICIENT_HISTORY")
+        self.assertEqual(result["z_score"], 0.0)
+        self.assertEqual(result["deviation_percentage"], 0.0)
 
     def test_8_obs_8_unique_days_sufficient(self):
         history = [300 + i for i in range(8)]
@@ -167,6 +207,51 @@ class TestBaselineUniqueDays(unittest.TestCase):
         self.assertIsNone(b.unique_days)
         result = baseline_engine.evaluate_against_baseline(360, b)
         self.assertNotEqual(result["baseline_status"], "INSUFFICIENT_HISTORY")
+
+
+class TestBaselineConfidence(unittest.TestCase):
+    """Tests for baseline_confidence() — the pure three-state classifier
+    used by the thermal-history API for display-level status."""
+
+    def test_zero_obs_is_insufficient_history(self):
+        status, explanation = baseline_engine.baseline_confidence(0, 0)
+        self.assertEqual(status, baseline_engine.INSUFFICIENT_HISTORY)
+        self.assertIn("No observations", explanation)
+
+    def test_few_obs_is_provisional(self):
+        status, explanation = baseline_engine.baseline_confidence(3, 3)
+        self.assertEqual(status, baseline_engine.PROVISIONAL)
+        self.assertIn("Provisional", explanation)
+        self.assertIn("3 observation", explanation)
+
+    def test_8_obs_8_days_is_established(self):
+        status, explanation = baseline_engine.baseline_confidence(8, 8)
+        self.assertEqual(status, baseline_engine.ESTABLISHED)
+        self.assertIn("Established", explanation)
+
+    def test_many_obs_few_days_is_provisional(self):
+        """9 obs but only 4 unique days -> PROVISIONAL."""
+        status, explanation = baseline_engine.baseline_confidence(9, 4)
+        self.assertEqual(status, baseline_engine.PROVISIONAL)
+        self.assertIn("4 unique active day", explanation)
+
+    def test_few_obs_many_days_is_provisional(self):
+        """7 obs across 10 unique days -> PROVISIONAL (obs count fails)."""
+        status, explanation = baseline_engine.baseline_confidence(7, 10)
+        self.assertEqual(status, baseline_engine.PROVISIONAL)
+        self.assertIn("7 observation", explanation)
+
+    def test_sufficient_count_insufficient_days_is_provisional(self):
+        """8 obs but only 5 unique days -> PROVISIONAL."""
+        status, explanation = baseline_engine.baseline_confidence(8, 5)
+        self.assertEqual(status, baseline_engine.PROVISIONAL)
+        self.assertIn("5 unique active day", explanation)
+
+    def test_insufficient_history_does_not_say_provisional(self):
+        """INSUFFICIENT_HISTORY must be distinct from PROVISIONAL."""
+        status, _ = baseline_engine.baseline_confidence(0, 0)
+        self.assertEqual(status, baseline_engine.INSUFFICIENT_HISTORY)
+        self.assertNotEqual(status, baseline_engine.PROVISIONAL)
 
 
 class TestEvidenceEngine(unittest.TestCase):
@@ -302,6 +387,23 @@ class TestClassifierRuleEngine(unittest.TestCase):
                     "behavior_label": "PERSISTENT_UNEXPECTED", "baseline_status": "ABNORMAL", "confidence": 80}
         result = classifier.rule_based_classify(features)
         self.assertEqual(result["category"], "industrial_alert")
+
+    def test_near_facility_provisional_becomes_industrial_new(self):
+        """A near-facility observation with a PROVISIONAL baseline (not yet
+        established) should be classified as industrial_new, not
+        industrial_normal or industrial_alert."""
+        features = {"distance_to_facility_km": 1.2, "land_cover": "industrial", "month": 6,
+                    "behavior_label": "PROVISIONAL", "baseline_status": "INSUFFICIENT_HISTORY", "confidence": 70}
+        result = classifier.rule_based_classify(features)
+        self.assertEqual(result["category"], "industrial_new")
+
+    def test_near_facility_insufficient_history_becomes_industrial_new(self):
+        """A near-facility observation with zero baseline history should be
+        classified as industrial_new."""
+        features = {"distance_to_facility_km": 0.8, "land_cover": "industrial", "month": 6,
+                    "behavior_label": "INSUFFICIENT_HISTORY", "baseline_status": "INSUFFICIENT_HISTORY", "confidence": 70}
+        result = classifier.rule_based_classify(features)
+        self.assertEqual(result["category"], "industrial_new")
 
     def test_forest_far_from_facility_is_wildfire(self):
         features = {"distance_to_facility_km": None, "land_cover": "forest", "month": 4,

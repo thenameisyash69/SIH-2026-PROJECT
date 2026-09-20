@@ -6,7 +6,12 @@ from datetime import timedelta
 from app.database import get_db
 from app import models, schemas
 from app.services.facility_fingerprint import build_fingerprint
-from app.services.baseline_engine import compute_baseline, MIN_OBSERVATIONS_FOR_BASELINE
+from app.services.baseline_engine import (
+    compute_baseline, baseline_confidence,
+    MIN_OBSERVATIONS_FOR_BASELINE,
+    INSUFFICIENT_HISTORY, PROVISIONAL, ESTABLISHED,
+    Z_ABNORMAL, Z_ELEVATED,
+)
 
 router = APIRouter(prefix="/facilities", tags=["facilities"])
 
@@ -44,9 +49,18 @@ def get_thermal_history(facility_id: int, db: Session = Depends(get_db),
 
     Uses ONLY real NASA FIRMS observations (source="nasa_firms") within
     the requested rolling calendar window. Demo observations are never
-    included. If fewer than MIN_OBSERVATIONS_FOR_BASELINE observations
-    exist in the window, insufficient_history=True is returned and no
-    misleading statistics are computed.
+    included.
+
+    Baseline status:
+      - INSUFFICIENT_HISTORY: no usable observations in the window.
+      - PROVISIONAL: some real observations exist but fewer than
+        MIN_OBSERVATIONS_FOR_BASELINE (8) obs or 8 unique active days —
+        baseline stats are computed and returned, but are not yet stable.
+      - ESTABLISHED: at least 8 observations across 8 unique active days.
+
+    Demo data is never mixed with real FIRMS data (spec §28). Demo
+    observations are always tagged source="demo_synthetic" and are
+    excluded unless the caller explicitly passes source="demo_synthetic".
 
     Histogram bins are 5 K brightness buckets.
     """
@@ -66,13 +80,18 @@ def get_thermal_history(facility_id: int, db: Session = Depends(get_db),
 
     valid = [h for h in rows if h.acq_date is not None]
     if not valid:
+        status, explanation = baseline_confidence(0, 0)
         return schemas.ThermalHistoryOut(
             facility_id=facility.id,
             facility_name=facility.name,
             source=source,
             window_days=window_days,
             observation_count=0,
+            unique_active_days=0,
             insufficient_history=True,
+            baseline_status=status,
+            confidence=explanation,
+            limitations=explanation,
             sudden_rise_level="INSUFFICIENT_HISTORY",
         )
 
@@ -83,43 +102,14 @@ def get_thermal_history(facility_id: int, db: Session = Depends(get_db),
     observation_count = len(in_window)
     unique_days = len({h.acq_date.date() for h in in_window})
 
-    if (observation_count < MIN_OBSERVATIONS_FOR_BASELINE
-            or unique_days < MIN_OBSERVATIONS_FOR_BASELINE):
-        observations = []
-        if detailed:
-            observations = [
-                schemas.ThermalObservationRow(
-                    hotspot_id=h.id,
-                    acq_date=h.acq_date.isoformat() if h.acq_date else None,
-                    brightness=h.brightness,
-                    frp=h.frp,
-                    confidence=h.confidence,
-                    z_score=h.z_score,
-                    deviation_percentage=h.deviation_percentage,
-                    baseline_status=h.baseline_status,
-                    is_anomaly=bool(h.is_anomaly),
-                )
-                for h in in_window
-            ]
-        return schemas.ThermalHistoryOut(
-            facility_id=facility.id,
-            facility_name=facility.name,
-            source=source,
-            window_days=window_days,
-            date_start=min(h.acq_date for h in in_window).isoformat() if in_window else None,
-            date_end=latest.isoformat(),
-            observation_count=observation_count,
-            insufficient_history=True,
-            observations=observations,
-            sudden_rise_level="INSUFFICIENT_HISTORY",
-        )
-
+    # Always compute baseline stats from the available in-window history.
+    # compute_baseline() now returns PROVISIONAL (stats computed) instead
+    # of discarding them when the 8/8 threshold isn't met.
     brightness_values = [h.brightness for h in in_window]
     baseline = compute_baseline(brightness_values, unique_days=unique_days)
+    baseline_status, explanation = baseline_confidence(observation_count, unique_days)
 
     # 5 K histogram bins
-    lo = int(min(brightness_values) // 5) * 5
-    hi = int(max(brightness_values) // 5) * 5 + 5
     bins = {}
     for b in brightness_values:
         bucket = int(b // 5) * 5
@@ -129,23 +119,6 @@ def get_thermal_history(facility_id: int, db: Session = Depends(get_db),
         schemas.ThermalHistoryBin(bin_start=float(k), bin_end=float(k + 5), count=v)
         for k, v in sorted(bins.items())
     ]
-
-    latest_obs = in_window[-1]
-
-    # Deterministic display-triage level for the LATEST observation.
-    # This is NOT a fire detector — it is a label for unusual thermal
-    # activity so the analyst can spot it quickly. Derived ONLY from the
-    # stored z_score and the baseline_engine thresholds (Z_ABNORMAL=2.5,
-    # Z_ELEVATED=1.5).
-    z = latest_obs.z_score
-    if z is None:
-        sudden_rise_level = "NORMAL_RANGE"
-    elif z >= 2.5:
-        sudden_rise_level = "SUDDEN_THERMAL_SPIKE"
-    elif z >= 1.5:
-        sudden_rise_level = "ELEVATED"
-    else:
-        sudden_rise_level = "NORMAL_RANGE"
 
     observations = []
     if detailed:
@@ -164,20 +137,44 @@ def get_thermal_history(facility_id: int, db: Session = Depends(get_db),
             for h in in_window
         ]
 
+    latest_obs = in_window[-1]
+
+    # sudden_rise_level is a display triage label, not a fire detector.
+    # For PROVISIONAL baselines, z-scores are not statistically reliable
+    # so we surface the provisional state instead of a misleading spike flag.
+    if baseline_status == PROVISIONAL:
+        sudden_rise_level = "PROVISIONAL"
+    elif baseline_status == INSUFFICIENT_HISTORY:
+        sudden_rise_level = "INSUFFICIENT_HISTORY"
+    else:
+        z = latest_obs.z_score
+        if z is None:
+            sudden_rise_level = "NORMAL_RANGE"
+        elif z >= Z_ABNORMAL:
+            sudden_rise_level = "SUDDEN_THERMAL_SPIKE"
+        elif z >= Z_ELEVATED:
+            sudden_rise_level = "ELEVATED"
+        else:
+            sudden_rise_level = "NORMAL_RANGE"
+
     return schemas.ThermalHistoryOut(
         facility_id=facility.id,
         facility_name=facility.name,
         source=source,
         window_days=window_days,
-        date_start=min(h.acq_date for h in in_window).isoformat(),
+        date_start=min(h.acq_date for h in in_window).isoformat() if in_window else None,
         date_end=latest.isoformat(),
-        observation_count=len(in_window),
+        observation_count=observation_count,
+        unique_active_days=unique_days,
         mean=round(baseline.mean, 2) if baseline.mean is not None else None,
         median=round(baseline.median, 2) if baseline.median is not None else None,
         std=round(baseline.std, 2) if baseline.std is not None else None,
         p95=round(baseline.p95, 2) if baseline.p95 is not None else None,
         current_brightness=latest_obs.brightness,
-        insufficient_history=False,
+        insufficient_history=(baseline_status == INSUFFICIENT_HISTORY),
+        baseline_status=baseline_status,
+        confidence=explanation,
+        limitations=explanation,
         histogram=histogram,
         observations=observations,
         sudden_rise_level=sudden_rise_level,

@@ -7,6 +7,8 @@ import { useMemo } from 'react'
  *
  * Levels (mutually exclusive, evaluated in order):
  *   INSUFFICIENT_HISTORY — no usable baseline
+ *   PROVISIONAL          — some history exists but < 8 obs / < 8 unique
+ *                          days; baseline stats are computed but not stable
  *   SUDDEN_THERMAL_SPIKE  — z-score above the abnormal threshold
  *   ELEVATED              — z-score above the elevated threshold
  *   NORMAL_RANGE          — otherwise
@@ -14,6 +16,7 @@ import { useMemo } from 'react'
 export function suddenRiseLevel(hotspot, thermalHistory) {
   if (!thermalHistory) return 'UNKNOWN'
   if (thermalHistory.insufficient_history) return 'INSUFFICIENT_HISTORY'
+  if (thermalHistory.baseline_status === 'PROVISIONAL') return 'PROVISIONAL'
 
   const z = hotspot?.z_score
   if (z == null) return 'NORMAL_RANGE'
@@ -28,6 +31,7 @@ const LEVEL_META = {
   NORMAL_RANGE: { label: 'Normal range', tone: 'normal', note: 'Within historical operating band.' },
   ELEVATED: { label: 'Elevated', tone: 'elevated', note: 'Above the facility\'s elevated threshold — unusual for this site.' },
   SUDDEN_THERMAL_SPIKE: { label: 'Sudden thermal spike', tone: 'spike', note: 'Well above the facility\'s historical baseline. This is unusual thermal activity, NOT a confirmed fire.' },
+  PROVISIONAL: { label: 'Provisional — limited history', tone: 'provisional', note: 'Some NASA FIRMS history exists but is not yet sufficient for a stable baseline (minimum 8 observations across 8 unique active days). Statistics are real but not yet stable.' },
   INSUFFICIENT_HISTORY: { label: 'Insufficient history', tone: 'insufficient', note: 'Not enough NASA FIRMS history to establish a baseline for this facility.' },
   UNKNOWN: { label: 'Unknown', tone: 'unknown', note: 'No baseline data available.' },
 }
@@ -47,7 +51,7 @@ export function SuddenRiseIndicator({ hotspot, thermalHistory }) {
  * Compact bar chart of per-observation brightness over time.
  * Uses ONLY real NASA FIRMS rows returned by the API. Never fabricates.
  */
-export default function ThermalHistoryChart({ observations, baseline, selectedHotspotId }) {
+export default function ThermalHistoryChart({ observations, baseline, selectedHotspotId, baselineStatus }) {
   const { max, min, rows } = useMemo(() => {
     const vals = observations.map((o) => o.brightness).filter((v) => v != null)
     const maxV = Math.max(...vals, baseline?.p95 || 0, 1)
@@ -63,6 +67,15 @@ export default function ThermalHistoryChart({ observations, baseline, selectedHo
 
   return (
     <div className="thermal-chart">
+      {baselineStatus === 'PROVISIONAL' && (
+        <div className="thermal-chart__provisional-banner">
+          <span className="thermal-chart__provisional-flag">PROVISIONAL — limited history</span>
+          <span className="thermal-chart__provisional-note">
+            {observations.length} observation(s) shown — minimum {8} required for a stable baseline.
+            Statistics are real but not yet reliable.
+          </span>
+        </div>
+      )}
       <div className="thermal-chart__bars">
         {rows.map((o) => {
           const heightPct = 12 + ((o.brightness - min) / range) * 88

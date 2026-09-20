@@ -76,14 +76,22 @@ export default function FacilitiesPage() {
                   <p className="empty">Insufficient historical observations for a reliable baseline yet
                     ({fingerprint.observation_count} observation(s) so far — need at least 8).</p>
                 ) : (
-                  <div className="fingerprint-grid">
-                    <div><strong>{fingerprint.observation_count}</strong><span>observations</span></div>
-                    <div><strong>{fingerprint.baseline_mean}</strong><span>baseline mean</span></div>
-                    <div><strong>{fingerprint.baseline_median}</strong><span>baseline median</span></div>
-                    <div><strong>{fingerprint.baseline_p95}</strong><span>baseline P95</span></div>
-                    <div><strong>{fingerprint.persistence_score}</strong><span>persistence score</span></div>
-                    <div><strong>{fingerprint.recurrence_rate}</strong><span>recurrence rate</span></div>
-                  </div>
+                  <>
+                    {fingerprint.behavior_label === 'PROVISIONAL' && (
+                      <p className="empty">Provisional baseline — {fingerprint.observation_count} observation(s),
+                        {fingerprint.recent_30d_count} in last 30d — still accumulating history
+                        (need at least 8 across 8 unique days).
+                      </p>
+                    )}
+                    <div className="fingerprint-grid">
+                      <div><strong>{fingerprint.observation_count}</strong><span>observations</span></div>
+                      <div><strong>{fingerprint.baseline_mean != null ? fingerprint.baseline_mean.toFixed(1) : '—'}</strong><span>baseline mean</span></div>
+                      <div><strong>{fingerprint.baseline_median != null ? fingerprint.baseline_median.toFixed(1) : '—'}</strong><span>baseline median</span></div>
+                      <div><strong>{fingerprint.baseline_p95 != null ? fingerprint.baseline_p95.toFixed(1) : '—'}</strong><span>baseline P95</span></div>
+                      <div><strong>{fingerprint.persistence_score}</strong><span>persistence score</span></div>
+                      <div><strong>{fingerprint.recurrence_rate}</strong><span>recurrence rate</span></div>
+                    </div>
+                  </>
                 )}
 
                 <div className="behavior-label-row">
@@ -97,6 +105,10 @@ export default function FacilitiesPage() {
                   {fingerprint.behavior_label === 'PERSISTENT_UNEXPECTED' && (
                     <p className="detail__disclaimer">This facility is persistently active but recent readings
                       diverge from its own historical pattern — worth investigating.</p>
+                  )}
+                  {fingerprint.behavior_label === 'PROVISIONAL' && (
+                    <p className="detail__disclaimer">Provisional baseline — recent readings are compared against
+                      an incomplete history. Re-evaluate once 8+ observations across 8+ days exist.</p>
                   )}
                 </div>
 

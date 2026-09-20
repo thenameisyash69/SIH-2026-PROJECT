@@ -95,6 +95,7 @@ class FacilityFingerprintOut(BaseModel):
     facility_id: int
     facility_name: str
     observation_count: int
+    baseline_status: str = "INSUFFICIENT_HISTORY"  # INSUFFICIENT_HISTORY / PROVISIONAL / ESTABLISHED
     baseline_mean: Optional[float] = None
     baseline_median: Optional[float] = None
     baseline_std: Optional[float] = None
@@ -104,7 +105,7 @@ class FacilityFingerprintOut(BaseModel):
     recent_60d_count: int
     persistence_score: float
     recurrence_rate: float
-    behavior_label: str   # PERSISTENT_EXPECTED / PERSISTENT_UNEXPECTED / INSUFFICIENT_HISTORY
+    behavior_label: str   # PERSISTENT_EXPECTED / PERSISTENT_UNEXPECTED / INSUFFICIENT_HISTORY / IRREGULAR / PROVISIONAL
     historical_anomaly_count: int
 
 
@@ -134,12 +135,16 @@ class ThermalHistoryOut(BaseModel):
     date_start: Optional[str] = None
     date_end: Optional[str] = None
     observation_count: int
+    unique_active_days: Optional[int] = None
     mean: Optional[float] = None
     median: Optional[float] = None
     std: Optional[float] = None
     p95: Optional[float] = None
     current_brightness: Optional[float] = None
     insufficient_history: bool = False
+    baseline_status: str = "INSUFFICIENT_HISTORY"
+    confidence: str = ""
+    limitations: str = ""
     histogram: List[ThermalHistoryBin] = []
     observations: List[ThermalObservationRow] = []
     sudden_rise_level: Optional[str] = None

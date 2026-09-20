@@ -952,6 +952,32 @@ body {
   font-family: var(--font-mono);
 }
 
+/* Provisional baseline — 1-7 observations or <8 unique days.
+   Real observed stats shown with a clear provisional qualifier. */
+.baseline-provisional {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.7rem;
+  margin: 0.4rem 0 0.2rem;
+  padding: 0.5rem 0.6rem;
+  background: color-mix(in srgb, var(--amber)15%, transparent);
+  border: 1px dashed var(--amber);
+  border-radius: 4px;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+.baseline-provisional__eyebrow {
+  flex: 1 1 100%;
+  color: var(--amber);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.68rem;
+}
+.baseline-provisional__stat {
+  font-family: var(--font-mono);
+}
+
 /* ---------- Investigation narrative sections (1-8) ---------- */
 .where-block, .what-block, .why-block {
   display: grid;
@@ -1371,6 +1397,38 @@ body {
   font-size: 0.72rem;
   color: var(--text-dim);
   line-height: 1.5;
+}
+.thermal-baseline-block__note--provisional {
+  background: color-mix(in srgb, var(--amber)15%, transparent);
+  border: 1px solid var(--amber);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+  font-weight: 600;
+  color: var(--amber);
+}
+
+/* Compact PROVISIONAL banner above the thermal history chart */
+.thermal-chart__provisional-banner--compact {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.5rem;
+  margin-bottom: 0.3rem;
+  background: color-mix(in srgb, var(--amber)15%, transparent);
+  border: 1px dashed var(--amber);
+  border-radius: 3px;
+  font-size: 0.68rem;
+}
+.thermal-chart__provisional-flag {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.thermal-chart__provisional-note {
+  color: var(--text-dim);
+  flex: 1;
 }
 .thermal-baseline-stats {
   display: flex;
