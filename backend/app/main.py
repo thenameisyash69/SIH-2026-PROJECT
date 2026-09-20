@@ -30,6 +30,20 @@ app.include_router(data_sources.router)
 app.include_router(model_performance.router)
 app.include_router(ml_labeling.router)
 
+@app.get("/seed")
+def trigger_db_seed():
+    try:
+        import sys, os, importlib
+        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if backend_dir not in sys.path:
+            sys.path.insert(0, backend_dir)
+        
+        seed_module = importlib.import_module("scripts.seed_demo")
+        seed_module.main()
+        return {"status": "success", "message": "Demo database seeded successfully!"}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
 @app.on_event("startup")
 async def on_startup():
     init_db()
