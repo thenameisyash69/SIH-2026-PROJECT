@@ -35,7 +35,7 @@ app.include_router(ml_labeling.router)
 def on_startup():
     init_db()
     _log_firms_diagnostics()
-    if False and settings.firms_enabled and settings.firms_configured:
+    if settings.firms_enabled and settings.firms_configured:
         asyncio.create_task(_firms_sync_loop())
     else:
         reason = "FIRMS_ENABLED is false" if not settings.firms_enabled else "FIRMS_MAP_KEY not set"
