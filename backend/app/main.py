@@ -30,13 +30,29 @@ app.include_router(data_sources.router)
 app.include_router(model_performance.router)
 app.include_router(ml_labeling.router)
 
-
 @app.on_event("startup")
-def on_startup():
+async def on_startup():
     init_db()
     _log_firms_diagnostics()
+
+    # Auto-seed demo records on startup
+    try:
+        import sys, os, importlib
+        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if backend_dir not in sys.path:
+            sys.path.insert(0, backend_dir)
+            
+        seed_module = importlib.import_module("scripts.seed_demo")
+        seed_module.main()
+        print("Demo database auto-seeded successfully!")
+    except Exception as e:
+        print(f"Auto-seed status: {e}")
+
     if settings.firms_enabled and settings.firms_configured:
-        asyncio.create_task(_firms_sync_loop())
+        try:
+            asyncio.create_task(_firms_sync_loop())
+        except NameError:
+            pass
     else:
         reason = "FIRMS_ENABLED is false" if not settings.firms_enabled else "FIRMS_MAP_KEY not set"
         print(f"[startup] Automatic FIRMS sync NOT started: {reason}. "
