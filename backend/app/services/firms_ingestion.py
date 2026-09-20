@@ -8,8 +8,8 @@ Deliberately does NOT duplicate any classification/anomaly/risk logic —
 every fetched observation is normalized here and then handed to
 app.services.pipeline.process_observation(), the same single orchestrator
 seed.py uses. This module's only responsibilities are: fetch, normalize,
-record the attempt (success or failure) in IngestionRun, and count
-inserted vs. duplicate.
+enforce India scope, record the attempt (success or failure) in IngestionRun, 
+and count inserted vs. duplicate.
 
 CRITICAL HONESTY RULE (spec's own Final Rule): a sync is only ever marked
 `success=True` if a real NASA HTTP request actually returned and parsed
@@ -56,14 +56,21 @@ def sync_once(db: Session) -> dict:
     fetched_count = len(raw_observations)
     inserted_count = 0
     duplicate_count = 0
+    skipped_outside_india = 0
 
     for raw in raw_observations:
+        # Strict India boundary check — skip if point falls outside India
+        if not is_in_india(raw["lat"], raw["lon"]):
+            skipped_outside_india += 1
+            continue
+
         land_cover = tag_land_cover(raw["lat"], raw["lon"])
         hotspot = process_observation(db, {
             **raw,
             "land_cover": land_cover,
             "source": "nasa_firms",
         }, commit=False)
+
         if getattr(hotspot, "_was_duplicate", False):
             duplicate_count += 1
         else:
@@ -84,6 +91,7 @@ def sync_once(db: Session) -> dict:
         "fetched": fetched_count,
         "inserted": inserted_count,
         "duplicates_skipped": duplicate_count,
+        "skipped_outside_india": skipped_outside_india,
         "last_successful_sync": run.finished_at.isoformat(),
         "sources": settings.firms_sources,
         "duration_seconds": (run.finished_at - started_at).total_seconds(),
@@ -132,17 +140,16 @@ def get_firms_status(db: Session) -> dict:
         minutes_since_success = (datetime.utcnow() - last_success_run.finished_at).total_seconds() / 60
         stale = minutes_since_success > STALE_AFTER_MINUTES_DEFAULT
 
-    # Truthful OFFLINE reason using the config diagnostics, not a generic string.
+    # Truthful OFFLINE reason using config diagnostics
     offline_reason = None
     if not settings.firms_configured:
         diag = settings.diagnostic_snapshot()
-        if diag["firms_map_key_pre_existed_in_os_environ"]:
+        if diag.get("firms_map_key_pre_existed_in_os_environ"):
             offline_reason = ("FIRMS_MAP_KEY not set — an empty value for this variable already existed "
-                               "in the OS/shell environment before .env was loaded, so .env's value was "
-                               "not applied (real env vars correctly take precedence). Run "
-                               "`python -m scripts.test_firms` to diagnose.")
-        elif not diag["env_file_found"]:
-            offline_reason = f"FIRMS_MAP_KEY not set — no .env file was found at {diag['env_file_expected_path']}."
+                              "in the OS/shell environment before .env was loaded, so .env's value was "
+                              "not applied. Run `python -m scripts.test_firms` to diagnose.")
+        elif not diag.get("env_file_found"):
+            offline_reason = f"FIRMS_MAP_KEY not set — no .env file was found at {diag.get('env_file_expected_path')}."
         else:
             offline_reason = "FIRMS_MAP_KEY not set in backend/.env."
 
