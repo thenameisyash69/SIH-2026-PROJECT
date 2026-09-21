@@ -3,6 +3,18 @@ from datetime import datetime
 from typing import Optional, List
 
 
+class PaginatedHotspots(BaseModel):
+    """Response envelope for paginated hotspot list requests.
+
+    Includes total count so the frontend knows whether all matching records
+    were loaded, plus limit/offset for transparency about which page was
+    returned."""
+    total: int
+    limit: int
+    offset: int
+    hotspots: List["HotspotOut"]
+
+
 class FacilityOut(BaseModel):
     id: int
     name: str

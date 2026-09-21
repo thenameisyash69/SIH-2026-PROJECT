@@ -8,6 +8,9 @@ import {
   fetchVerification,
   fetchIndustrialFireCandidates,
   fetchIndustrialFireReviewProgress,
+  fetchDemoStatus,
+  createDemoScenario,
+  resetDemoData,
 } from '../api'
 import { getThermalSeverity } from '../utils/thermalSeverity'
 import DeepAnalysis from './DeepAnalysis'
@@ -407,6 +410,10 @@ export default function LabelingPage() {
   const [error, setError] = useState(null)
   const [thermalFilter, setThermalFilter] = useState('ALL')
 
+  // Source filter: LIVE (nasa_firms), DEMO (demo), ALL (all sources)
+  // Default is LIVE to keep normal analyst workflows unchanged.
+  const [sourceFilter, setSourceFilter] = useState('LIVE')
+
   // Active filters: drive the fetch. Only mutated by applyFilters/clearFilters.
   const [filters, setFilters] = useState({
     verify: 'ALL',
@@ -439,6 +446,7 @@ export default function LabelingPage() {
   const [verifiedList, setVerifiedList] = useState([])
   const [openDeepId, setOpenDeepId] = useState(null)
   const [verifiedLoading, setVerifiedLoading] = useState(false)
+  const [demoLoading, setDemoLoading] = useState(false)
 
   // Monotonic sequence counter used to discard stale search results when the
   // user submits a new search before the previous one resolves (A -> B -> C).
@@ -446,15 +454,47 @@ export default function LabelingPage() {
   // can reliably detect that a newer request has superseded them.
   const searchSeqRef = useRef(0)
 
+  const createDemo = async (days = 30) => {
+    setDemoLoading(true)
+    setError(null)
+    setMsg(null)
+    try {
+      await createDemoScenario(days)
+      setMsg(`Demo scenario created (${days} days). Switch to DEMO mode to review.`)
+      if (sourceFilter === 'DEMO') load()
+    } catch (e) {
+      setError(e.message || 'Failed to create demo scenario')
+    } finally {
+      setDemoLoading(false)
+    }
+  }
+
+  const resetDemo = async () => {
+    if (!window.confirm('Delete ALL demo data? This cannot be undone.')) return
+    setDemoLoading(true)
+    setError(null)
+    setMsg(null)
+    try {
+      await resetDemoData()
+      setMsg('Demo data reset. Switching to LIVE mode.')
+      setSourceFilter('LIVE')
+      load()
+    } catch (e) {
+      setError(e.message || 'Failed to reset demo data')
+    } finally {
+      setDemoLoading(false)
+    }
+  }
+
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const [statsResult, eligibilityResult, candidateResult] = await Promise.all([
-        fetchLabelingStats('nasa_firms'),
+        fetchLabelingStats(sourceFilter === 'LIVE' ? 'nasa_firms' : sourceFilter === 'DEMO' ? 'demo' : 'all'),
         fetchTrainingEligibility(),
         fetchLabelingCandidates({
-          source: 'nasa_firms',
+          source: sourceFilter === 'LIVE' ? 'nasa_firms' : sourceFilter === 'DEMO' ? 'demo' : 'all',
           limit: 50,
           diversity: true,
           verified:
@@ -665,7 +705,7 @@ export default function LabelingPage() {
     setVerifiedLoading(true)
     try {
       const result = await fetchLabelingCandidates({
-        source: 'nasa_firms',
+        source: sourceFilter === 'LIVE' ? 'nasa_firms' : sourceFilter === 'DEMO' ? 'demo' : 'all',
         verified: true,
         limit: 100,
         diversity: false,
@@ -747,6 +787,42 @@ export default function LabelingPage() {
         </form>
 
         <div className="labeling-filters">
+          <h4>Data Source</h4>
+          <div className="verify-buttons">
+            {['LIVE', 'DEMO', 'ALL'].map((filter) => (
+              <button
+                key={filter}
+                className={`btn-chip ${sourceFilter === filter ? 'btn-chip--active' : ''}`}
+                onClick={() => setSourceFilter(filter)}
+              >
+                {filter === 'LIVE' ? '🛰 Live NASA FIRMS' : filter === 'DEMO' ? '◆ Demo Data' : 'All Sources'}
+              </button>
+            ))}
+          </div>
+          <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+            <button
+              className="btn-chip"
+              onClick={() => createDemo(30)}
+              disabled={demoLoading}
+            >
+              {demoLoading ? 'Generating…' : '◆ Generate 30-Day Demo'}
+            </button>
+            <button
+              className="btn-chip"
+              onClick={() => createDemo(90)}
+              disabled={demoLoading}
+            >
+              {demoLoading ? 'Generating…' : '◆ Generate 90-Day Demo'}
+            </button>
+            <button
+              className="btn-chip"
+              onClick={resetDemo}
+              disabled={demoLoading}
+            >
+              ⨉ Reset Demo Data
+            </button>
+          </div>
+
           <h4>Thermal</h4>
           <div className="verify-buttons">
             {THERMAL_FILTERS.map((filter) => (
@@ -823,6 +899,11 @@ export default function LabelingPage() {
 
           <div className="labeling-active-filters">
             <span className="labeling-active-filters__label">Active:</span>
+            {sourceFilter !== 'LIVE' && (
+              <span className="badge badge--source">
+                source: {sourceFilter}
+              </span>
+            )}
             {[
               ['verify', filters.verify],
               ['facility', filters.facility],
@@ -877,10 +958,12 @@ export default function LabelingPage() {
         <div className="labeling-page__topbar">
           <div>
             <h2>NASA Analyst Labeling Queue</h2>
-            <p className="detail__reason">
-              Human verification creates the trusted labels required for future ML training.
-              This queue contains real NASA FIRMS observations; no synthetic demo observations are used here.
-            </p>
+             <p className="detail__reason">
+               Human verification creates the trusted labels required for future ML training.
+               {sourceFilter === 'LIVE' && ' This queue shows real NASA FIRMS observations only — no synthetic demo data.'}
+               {sourceFilter === 'DEMO' && ' ◆ DEMO DATA MODE — showing synthetic observations for demonstration only.'}
+               {sourceFilter === 'ALL' && ' Showing all sources — live NASA FIRMS and demo data are labeled separately.'}
+             </p>
           </div>
           {searched && (
             <button className="btn-chip" onClick={clearSearch}>
@@ -896,8 +979,20 @@ export default function LabelingPage() {
           <div className="sync-message">{msg}</div>
         )}
 
+        {sourceFilter === 'DEMO' && (
+          <div className="demo-banner">
+            ◆ DEMO DATA MODE — Synthetic observations for demonstration only.
+            These do NOT represent real NASA FIRMS detections.
+          </div>
+        )}
+        {sourceFilter === 'ALL' && (
+          <div className="demo-banner demo-banner--all">
+            Showing all sources — live NASA FIRMS and demo data are labeled separately in each card.
+          </div>
+        )}
+
         <section className="metrics metrics--impact">
-          <Stat label="REAL NASA OBSERVATIONS" value={stats?.total_observations ?? candidates.length} />
+          <Stat label={sourceFilter === 'LIVE' ? 'LIVE OBSERVATIONS' : sourceFilter === 'DEMO' ? 'DEMO OBSERVATIONS' : 'TOTAL OBSERVATIONS'} value={stats?.total_observations ?? candidates.length} />
           <Stat label="VERIFIED" value={stats?.verified_observations ?? '—'} tone="amber" />
           <Stat label="UNVERIFIED" value={stats?.unverified_observations ?? '—'} />
           <Stat

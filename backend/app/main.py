@@ -18,6 +18,7 @@ from app.routers import (
     model_performance,
     ml_labeling,
     admin,
+    demo,
 )
 from app.services import firms_ingestion
 
@@ -47,6 +48,7 @@ app.include_router(data_sources.router)
 app.include_router(model_performance.router)
 app.include_router(ml_labeling.router)
 app.include_router(admin.router)
+app.include_router(demo.router)
 
 
 @app.on_event("startup")

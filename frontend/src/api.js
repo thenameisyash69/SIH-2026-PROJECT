@@ -6,9 +6,39 @@ const client = axios.create({ baseURL: API_URL })
 
 const firmsSyncClient = axios.create({ baseURL: API_URL, timeout: 60000 })
 
+/**
+ * Fetches ALL hotspots by internally paginating until fewer than `limit`
+ * records are returned per page. Returns { hotspots, total, source }.
+ *
+ * Pass `singlePage: true` to get only one page (default uses large limit
+ * for convenience but still returns the full envelope).
+ */
 export async function fetchHotspots(params = {}) {
-  const { data } = await client.get('/hotspots', { params })
-  return data
+  const { singlePage, ...rest } = params
+  const useParams = { ...rest }
+
+  if (singlePage) {
+    const { data } = await client.get('/hotspots', { params: useParams })
+    return data
+  }
+
+  const PAGE_SIZE = 2000
+  let allHotspots = []
+  let total = 0
+  let offset = 0
+
+  while (true) {
+    const { data } = await client.get('/hotspots', {
+      params: { ...useParams, limit: PAGE_SIZE, offset },
+    })
+    allHotspots = allHotspots.concat(data.hotspots || [])
+    total = data.total
+    if (data.hotspots.length < PAGE_SIZE) break
+    offset += PAGE_SIZE
+    if (offset >= total) break
+  }
+
+  return { hotspots: allHotspots, total }
 }
 
 export async function fetchHotspotById(id) {
@@ -152,5 +182,24 @@ export async function fetchIndustrialFireCandidates(params = {}) {
  */
 export async function fetchIndustrialFireReviewProgress(params = {}) {
   const { data } = await client.get('/hotspots/industrial-fire/review/progress', { params })
+  return data
+}
+
+// --- Demo scenario management ---
+// These endpoints create/reset DEMO-only data (source='demo'). They NEVER
+// touch nasa_firms records and NEVER modify verification decisions.
+
+export async function createDemoScenario(days = 30) {
+  const { data } = await client.post('/demo/scenario', null, { params: { days } })
+  return data
+}
+
+export async function resetDemoData() {
+  const { data } = await client.delete('/demo/data', { params: { confirm: 'DELETE_DEMO_DATA' } })
+  return data
+}
+
+export async function fetchDemoStatus() {
+  const { data } = await client.get('/demo/status')
   return data
 }

@@ -60,6 +60,11 @@ export default function FacilitiesPage() {
         {!selected && <p className="empty">Select a facility to view its thermal fingerprint.</p>}
         {selected && (
           <>
+            {selected.source === 'demo' && (
+              <div className="demo-banner">
+                ◆ DEMO FACILITY — Synthetic data for demonstration only.
+              </div>
+            )}
             <h2>{selected.name}</h2>
             <p className="facility-detail__identity">
               {selected.type.replace('_', ' ')} · {selected.state} · {selected.lat.toFixed(4)}, {selected.lon.toFixed(4)}

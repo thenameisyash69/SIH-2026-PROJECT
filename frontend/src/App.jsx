@@ -23,6 +23,7 @@ const SOURCE_FILTERS = ['REAL NASA', 'DEMO', 'ALL']
 export default function App() {
   const [view, setView] = useState('command_center')
   const [hotspots, setHotspots] = useState(demoHotspots)
+  const [totalHotspots, setTotalHotspots] = useState(0)
   const [alerts, setAlerts] = useState(demoAlerts)
   const [stats, setStats] = useState(null)
   const [firmsStatus, setFirmsStatus] = useState(null)
@@ -41,7 +42,8 @@ export default function App() {
         fetchStats(),
         fetchDataSourceStatus(),
       ])
-      setHotspots(h)
+      setHotspots(h.hotspots || h)
+      setTotalHotspots(h.total || (h.hotspots || h).length)
       setAlerts(a)
       setStats(s)
       const firms = sources.find((src) => src.name === 'NASA FIRMS')
@@ -146,7 +148,7 @@ export default function App() {
       {view === 'command_center' && (
         <>
           <section className="metrics">
-            <MetricCard label="Hotspots loaded" value={filteredHotspots.length} />
+            <MetricCard label="Hotspots loaded" value={filteredHotspots.length} subtitle={`${totalHotspots} total match current filters`} />
             <MetricCard label="Industrial sources" value={industrialCount} tone="amber" />
             <MetricCard label="Active anomalies" value={alertCount} tone="red" />
           </section>

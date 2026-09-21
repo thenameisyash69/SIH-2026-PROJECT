@@ -8,7 +8,7 @@ import os
 from app.database import get_db
 from app import models, schemas
 from app.services.satellite_image import build_satellite_image_url
-from app.services.india_scope import is_in_india
+from app.services.india_scope import is_in_india, _INDIA_BOUNDS, _SRI_LANKA_BOUNDS, _BANGLADESH_BOUNDS, _MYANMAR_BOUNDS
 from math import radians, sin, cos, sqrt, atan2, floor
 
 from app.services.facility_constants import FACILITY_ASSOCIATION_RADIUS_KM
@@ -80,7 +80,7 @@ def facility_proximity_bin(distance_km: Optional[float]) -> str:
 
 @router.get("/labeling/candidates")
 def get_labeling_candidates(
-    source: Optional[str] = Query(None, description="Filter by source: nasa_firms, demo_synthetic"),
+    source: Optional[str] = Query(None, description="Filter by source: nasa_firms, demo_synthetic, demo, or 'all' for no filter"),
     verified: Optional[bool] = Query(None, description="Filter by verification status"),
     facility_associated: Optional[bool] = Query(None, description="Filter: true = near facility (<=5km), false = away from facility"),
     facility_id: Optional[bool] = Query(None, description="Filter by facility_id presence: true = IS NOT NULL, false = IS NULL"),
@@ -109,8 +109,13 @@ def get_labeling_candidates(
     """
     from datetime import timedelta
     
-    # Base query: only nasa_firms by default for real training data
-    if source:
+    # Base query: source filter
+    # source='all' → no source filter (return all sources including demo)
+    # source=<specific> → filter to that source
+    # source=None → default to nasa_firms (backward compatible)
+    if source == "all":
+        query = db.query(models.Hotspot)
+    elif source:
         query = db.query(models.Hotspot).filter(models.Hotspot.source == source)
     else:
         query = db.query(models.Hotspot).filter(models.Hotspot.source == "nasa_firms")
@@ -472,18 +477,26 @@ def get_labeling_candidates(
     }
 
 
-@router.get("", response_model=List[schemas.HotspotOut])
+@router.get("", response_model=schemas.PaginatedHotspots)
 def list_hotspots(
     state: Optional[str] = None,
     category: Optional[str] = None,
     risk_level: Optional[str] = None,
-    source: Optional[str] = None,   # "demo_synthetic" or "nasa_firms" — lets the UI filter real vs demo
+    source: Optional[str] = None,   # "nasa_firms", "demo_synthetic", "demo", or "all"
     facility_id: Optional[int] = None,
     anomaly_only: bool = False,
-    limit: int = Query(500, le=2000),
+    verified: Optional[bool] = Query(None, description="Filter by verification status: true=verified, false=unverified, null=both"),
+    limit: int = Query(500, le=2000, description="Page size — use a large value (e.g. 10000) or page with offset"),
+    offset: int = Query(0, ge=0, description="Pagination offset for sequential page fetching"),
     india_scope: bool = Query(False, description="If true and source is nasa_firms, return only India-scoped observations"),
     db: Session = Depends(get_db),
 ):
+    """Returns hotspots as a paginated envelope with total count.
+
+    Use `limit` and `offset` to page through results. For fetching all
+    records, the frontend should iterate pages until returned count < limit.
+    The `total` field tells you how many records match the current filters.
+    """
     query = db.query(models.Hotspot)
     if state:
         query = query.filter(models.Hotspot.state == state)
@@ -491,18 +504,55 @@ def list_hotspots(
         query = query.filter(models.Hotspot.category == category)
     if risk_level:
         query = query.filter(models.Hotspot.risk_level == risk_level)
-    if source:
+    if source and source != "all":
         query = query.filter(models.Hotspot.source == source)
     if facility_id is not None:
         query = query.filter(models.Hotspot.facility_id == facility_id)
     if anomaly_only:
         query = query.filter(models.Hotspot.is_anomaly.is_(True))
-    results = query.order_by(models.Hotspot.acq_date.desc()).limit(limit).all()
 
-    if india_scope and source == "nasa_firms":
-        results = [h for h in results if is_in_india(h.lat, h.lon)]
+    # Verification-status filter (spec §22-23): join to verifications table.
+    # verified=true  → has a verification record
+    # verified=false → has NO verification record (unverified)
+    # verified=null  → no filter (default — return both)
+    if verified is not None:
+        if verified:
+            query = query.join(models.Verification, models.Hotspot.id == models.Verification.hotspot_id)
+        else:
+            query = query.outerjoin(models.Verification, models.Hotspot.id == models.Verification.hotspot_id)
+            query = query.filter(models.Verification.id.is_(None))
 
-    return results
+    # India scope filter pushed into SQL so pagination works correctly.
+    # Uses the same bounding boxes as india_scope.is_in_india().
+    if india_scope:
+        b = _INDIA_BOUNDS
+        query = query.filter(
+            models.Hotspot.lat >= b["min_lat"],
+            models.Hotspot.lat <= b["max_lat"],
+            models.Hotspot.lon >= b["min_lon"],
+            models.Hotspot.lon <= b["max_lon"],
+        )
+        for zone in (_SRI_LANKA_BOUNDS, _BANGLADESH_BOUNDS, _MYANMAR_BOUNDS):
+            query = query.filter(
+                ~and_(
+                    models.Hotspot.lat >= zone["min_lat"],
+                    models.Hotspot.lat <= zone["max_lat"],
+                    models.Hotspot.lon >= zone["min_lon"],
+                    models.Hotspot.lon <= zone["max_lon"],
+                )
+            )
+
+    # Count total AFTER all filters but BEFORE pagination.
+    total = query.order_by(None).count()
+
+    results = query.order_by(models.Hotspot.acq_date.desc()).offset(offset).limit(limit).all()
+
+    return schemas.PaginatedHotspots(
+        total=total,
+        limit=limit,
+        offset=offset,
+        hotspots=results,
+    )
 
 
 @router.get("/export")
