@@ -21,12 +21,13 @@ export default function FacilitiesPage() {
     setFingerprint(null)
     setLatestHotspot(null)
     try {
-      const [fp, hotspots] = await Promise.all([
+      const [fp, hotspotData] = await Promise.all([
         fetchFacilityFingerprint(facility.id),
-        fetchHotspots({ facility_id: facility.id, limit: 1 }),
+        fetchHotspots({ facility_id: facility.id, limit: 1, singlePage: true }),
       ])
       setFingerprint(fp)
-      setLatestHotspot(hotspots[0] || null)
+      const hotspotList = hotspotData.hotspots || []
+      setLatestHotspot(hotspotList[0] || null)
     } catch {
       setFingerprint(null)
     }
