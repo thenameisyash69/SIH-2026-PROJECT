@@ -63,13 +63,13 @@ export default function DetailPanel({ hotspot, hotspots = [], deep = false, comp
   // so a normal Command Center click never triggers extra investigation
   // requests.
   useEffect(() => {
-    if (!deep || !hotspot || hotspot.source !== 'nasa_firms' || !hotspot.facility) {
+    if (!deep || !hotspot || (hotspot.source !== 'nasa_firms' && hotspot.source !== 'demo') || !hotspot.facility) {
       setThermalHistory(null)
       return
     }
     let cancelled = false
     setLoadingHistory(true)
-    fetchFacilityThermalHistory(hotspot.facility.id, 90, 'nasa_firms')
+    fetchFacilityThermalHistory(hotspot.facility.id, 90, hotspot.source)
       .then((data) => { if (!cancelled) setThermalHistory(data) })
       .catch(() => { if (!cancelled) setThermalHistory(null) })
       .finally(() => { if (!cancelled) setLoadingHistory(false) })
@@ -432,9 +432,9 @@ export default function DetailPanel({ hotspot, hotspots = [], deep = false, comp
         </div>
       )}
 
-      {/* THERMAL HISTORY / BAR CHART — real NASA FIRMS rows only.
-          Shown BEFORE the baseline block so the chart drives the baseline. */}
-      {hotspot.source === 'nasa_firms' && hotspot.facility && (
+      {/* THERMAL HISTORY / BAR CHART — NASA FIRMS or DEMO source rows.
+          Uses the same thermal-history API; source is preserved end-to-end. */}
+      {(hotspot.source === 'nasa_firms' || hotspot.source === 'demo') && hotspot.facility && (
         thermalHistory ? (
           isInsufficientHistory ? (
             <p className="empty">
@@ -471,14 +471,20 @@ export default function DetailPanel({ hotspot, hotspots = [], deep = false, comp
         )
       )}
 
-      {/* 90-DAY NASA FIRMS THERMAL BASELINE + HISTOGRAM
-          Shown ONLY for real NASA FIRMS observations that are facility-associated
-          and have sufficient history. Never fabricated. */}
-          {hotspot.source === 'nasa_firms' && hotspot.facility && (
+      {/* 90-DAY THERMAL BASELINE + HISTOGRAM
+          Shown for NASA FIRMS or DEMO observations that are facility-associated
+          and have sufficient history. Source label reflects which data. */}
+          {(hotspot.source === 'nasa_firms' || hotspot.source === 'demo') && hotspot.facility && (
         <div className="thermal-baseline-block">
           <div className="thermal-baseline-block__head">
-            <span className="thermal-baseline-block__eyebrow">90-DAY NASA FIRMS THERMAL BASELINE</span>
-            <span className="thermal-baseline-block__source">Source: NASA FIRMS</span>
+            <span className="thermal-baseline-block__eyebrow">
+              {hotspot.source === 'nasa_firms'
+                ? '90-DAY NASA FIRMS THERMAL BASELINE'
+                : 'DEMO THERMAL BASELINE (synthetic observations)'}
+            </span>
+            <span className="thermal-baseline-block__source">
+              Source: {hotspot.source === 'nasa_firms' ? 'NASA FIRMS' : 'Demo (synthetic)'}
+            </span>
           </div>
 
           {loadingHistory ? (
@@ -607,7 +613,7 @@ export default function DetailPanel({ hotspot, hotspots = [], deep = false, comp
       </div>
 
       <h4>Thermal history</h4>
-      <Timeline hotspotId={hotspot.id} />
+      <Timeline hotspotId={hotspot.id} source={hotspot.source} />
 
       <h4>Assessment</h4>
       {!assessment && (

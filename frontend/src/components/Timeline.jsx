@@ -37,7 +37,7 @@ function saveLastHotspotId(id) {
   }
 }
 
-export default function Timeline({ hotspotId }) {
+export default function Timeline({ hotspotId, source }) {
   const [history, setHistory] = useState([])
   const [status, setStatus] = useState('loading')
   const seqRef = useRef(0)
@@ -60,7 +60,7 @@ export default function Timeline({ hotspotId }) {
       setStatus('ready')
     }
 
-    fetchHotspotHistory(hotspotId)
+    fetchHotspotHistory(hotspotId, source)
       .then((data) => {
         if (mySeq !== seqRef.current) return
         const arr = Array.isArray(data) ? data : []
@@ -83,7 +83,7 @@ export default function Timeline({ hotspotId }) {
       <button className="btn-chip" onClick={() => {
         const mySeq = ++seqRef.current
         setStatus('loading')
-        fetchHotspotHistory(hotspotId)
+        fetchHotspotHistory(hotspotId, source)
           .then((data) => {
             if (mySeq !== seqRef.current) return
             const arr = Array.isArray(data) ? data : []

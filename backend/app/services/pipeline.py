@@ -102,10 +102,17 @@ def process_observation(db: Session, observation: dict, commit: bool = True) -> 
         duplicate._was_duplicate = True   # transient attribute, not a DB column — for ingestion reporting only
         return duplicate
 
-    facility, distance_km = match_facility(db, observation["lat"], observation["lon"])
-
     obs_source = observation.get("source", "demo_synthetic")
     is_nasa = obs_source == "nasa_firms"
+
+    # Demo observations filter facilities by source='demo' to match demo-specific
+    # facilities. NASA FIRMS observations use source-agnostic matching (matches
+    # against all facility sources, including curated_demo) to preserve existing
+    # behavior.
+    facility, distance_km = match_facility(
+        db, observation["lat"], observation["lon"],
+        source="demo" if obs_source == "demo" else None,
+    )
 
     # NASA FIRMS observations use a rolling 90-day baseline computed from
     # NASA-only history. Demo observations keep the existing unbounded

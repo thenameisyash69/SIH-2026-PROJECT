@@ -37,7 +37,7 @@ def facility_proximity_bin(distance_km: Optional[float]) -> str:
 
 @router.get("/labeling/stats")
 def labeling_stats(
-    source: str = Query("nasa_firms", description="Source to filter: nasa_firms, demo_synthetic"),
+    source: str = Query("nasa_firms", description="Source to filter: nasa_firms, demo_synthetic, demo"),
     db: Session = Depends(get_db),
 ):
     from app.services.india_scope import is_in_india

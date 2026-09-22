@@ -21,7 +21,7 @@ SAFETY RULES (enforced in code):
 import random
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models
@@ -55,18 +55,17 @@ def _reset_demo_data(db: Session) -> int:
     count = db.query(models.Hotspot).filter(models.Hotspot.source == DEMO_SOURCE).count()
 
     # Delete verifications for demo hotspots first (FK constraint)
-    demo_ids_subq = (
-        db.query(models.Hotspot.id)
-        .filter(models.Hotspot.source == DEMO_SOURCE)
-        .subquery()
+    demo_ids_select = (
+        select(models.Hotspot.id)
+        .where(models.Hotspot.source == DEMO_SOURCE)
     )
     db.query(models.Verification).filter(
-        models.Verification.hotspot_id.in_(demo_ids_subq)
+        models.Verification.hotspot_id.in_(demo_ids_select)
     ).delete(synchronize_session=False)
 
     # Delete alerts for demo hotspots
     db.query(models.Alert).filter(
-        models.Alert.hotspot_id.in_(demo_ids_subq)
+        models.Alert.hotspot_id.in_(demo_ids_select)
     ).delete(synchronize_session=False)
 
     # Delete demo hotspots

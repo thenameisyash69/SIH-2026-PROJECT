@@ -386,6 +386,25 @@ body {
   color: var(--text-dim);
 }
 
+.demo-banner--persistent {
+  background: rgba(100,150,255,0.12);
+  border: 1px solid rgba(100,150,255,0.5);
+  color: var(--blue, #6496ff);
+  font-weight: 600;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+  padding: 0.35rem 0.7rem;
+  border-radius: 3px;
+}
+
+.detail__disclaimer--demo {
+  color: var(--blue, #6496ff);
+  font-size: 0.72rem;
+  margin-top: -0.25rem;
+  margin-bottom: 0.5rem;
+}
+
 .badge--source {
   background: rgba(100,150,255,0.15);
   border: 1px solid rgba(100,150,255,0.4);

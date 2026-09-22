@@ -61,8 +61,10 @@ export async function fetchAlerts(params = {}) {
   return data
 }
 
-export async function fetchHotspotHistory(id) {
-  const { data } = await client.get(`/hotspots/${id}/history`)
+export async function fetchHotspotHistory(id, source) {
+  const params = {}
+  if (source) params.source = source
+  const { data } = await client.get(`/hotspots/${id}/history`, { params })
   return data
 }
 

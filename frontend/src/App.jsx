@@ -96,7 +96,7 @@ export default function App() {
 
   const filteredHotspots = hotspots.filter((h) => {
     if (sourceFilter === 'REAL NASA') return h.source === 'nasa_firms'
-    if (sourceFilter === 'DEMO') return h.source === 'demo_synthetic'
+    if (sourceFilter === 'DEMO') return h.source === 'demo' || h.source === 'demo_synthetic'
     return true
   })
 

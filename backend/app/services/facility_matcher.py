@@ -27,15 +27,24 @@ def haversine_km(lat1, lon1, lat2, lon2) -> float:
     return 2 * R * atan2(sqrt(a), sqrt(1 - a))
 
 
-def match_facility(db: "Session", lat: float, lon: float, max_km: float = DEFAULT_MAX_MATCH_KM):
+def match_facility(db: "Session", lat: float, lon: float, max_km: float = DEFAULT_MAX_MATCH_KM, source: str | None = None):
     """
     Returns (facility_or_None, distance_km_or_None).
     Does NOT assume the nearest facility within range is definitely the
     source — that judgment belongs to the evidence engine, which weighs
     distance alongside other signals.
+
+    When source is provided, only facilities with that source are considered.
+    This allows demo observations to match demo facilities when both share
+    coordinates with curated_demo facilities. When source is None (default),
+    all facilities are considered — preserving existing behavior for
+    NASA FIRMS observations that match curated_demo facilities.
     """
     from app import models  # deferred: keeps haversine_km importable with zero dependencies
-    facilities = db.query(models.Facility).all()
+    query = db.query(models.Facility)
+    if source is not None:
+        query = query.filter(models.Facility.source == source)
+    facilities = query.all()
     best, best_dist = None, float("inf")
     for f in facilities:
         d = haversine_km(lat, lon, f.lat, f.lon)

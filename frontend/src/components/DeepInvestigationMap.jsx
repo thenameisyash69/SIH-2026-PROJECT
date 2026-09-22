@@ -259,7 +259,9 @@ export default function DeepInvestigationMap({ hotspot, hotspots = [] }) {
                   {isSel ? (
                     <div className="map-tooltip__source">SELECTED thermal observation</div>
                   ) : (
-                    <div className="map-tooltip__source">NASA FIRMS</div>
+                    <div className="map-tooltip__source">
+                      {h.source === 'nasa_firms' ? 'NASA FIRMS' : 'DEMO — synthetic'}
+                    </div>
                   )}
                   <div className="map-tooltip__row">
                     Brightness {h.brightness != null ? h.brightness.toFixed(1) : "-"} K

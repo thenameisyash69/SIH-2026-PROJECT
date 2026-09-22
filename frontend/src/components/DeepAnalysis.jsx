@@ -112,12 +112,23 @@ export default function DeepAnalysis({ hotspotId, hotspots = [], onClose, onVeri
             Event #{hotspot.id} · {hotspot.facility ? hotspot.facility.name : 'Unregistered location'}
           </span>
         </div>
+        {hotspot.source === 'demo' && (
+          <div className="demo-banner demo-banner--persistent">
+            DEMO DATA — SYNTHETIC SCENARIO
+          </div>
+        )}
         {onClose && (
           <button className="btn-secondary" onClick={onClose}>
             ← Back to queue
           </button>
         )}
-      </div>
+       </div>
+
+      {hotspot.source === 'demo' && (
+        <p className="detail__disclaimer detail__disclaimer--demo">
+          This analysis uses synthetic demonstration data and does not represent real NASA FIRMS observations.
+        </p>
+      )}
 
       <div className="deep-analysis__body">
         <DetailPanel hotspot={hotspot} hotspots={hotspots} deep />

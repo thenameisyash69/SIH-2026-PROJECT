@@ -661,16 +661,26 @@ def get_hotspot(hotspot_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{hotspot_id}/history", response_model=List[schemas.HotspotOut])
-def get_hotspot_history(hotspot_id: int, db: Session = Depends(get_db)):
+def get_hotspot_history(
+    hotspot_id: int,
+    db: Session = Depends(get_db),
+    source: Optional[str] = Query(None, description="Filter history by source: nasa_firms, demo, demo_synthetic, or all"),
+):
+    """Returns the historical observations for the same facility as the given hotspot.
+
+    By default returns ALL sources. Pass source='nasa_firms', source='demo',
+    or source='demo_synthetic' to filter. source='all' also returns all sources.
+    """
     hotspot = db.query(models.Hotspot).filter(models.Hotspot.id == hotspot_id).first()
     if not hotspot or not hotspot.facility_id:
         return []
-    return (
+    query = (
         db.query(models.Hotspot)
         .filter(models.Hotspot.facility_id == hotspot.facility_id)
-        .order_by(models.Hotspot.acq_date.asc())
-        .all()
     )
+    if source and source != "all":
+        query = query.filter(models.Hotspot.source == source)
+    return query.order_by(models.Hotspot.acq_date.asc()).all()
 
 
 @router.get("/{hotspot_id}/satellite-image")
