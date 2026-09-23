@@ -1,0 +1,13 @@
+{
+  "rootDirectory": "frontend",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "cleanOutputs": true
+}
