@@ -33,7 +33,8 @@ export async function fetchHotspots(params = {}) {
     })
     allHotspots = allHotspots.concat(data.hotspots || [])
     total = data.total
-    if (data.hotspots.length < PAGE_SIZE) break
+    const pageSize = (data.hotspots || []).length
+    if (pageSize < PAGE_SIZE) break
     offset += PAGE_SIZE
     if (offset >= total) break
   }
